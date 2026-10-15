@@ -1,12 +1,14 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Play, RotateCcw, ChevronLeft, ChevronRight, Check, Moon } from 'lucide-react';
+import { Play, RotateCcw, ChevronLeft, ChevronRight, Check, Moon, BookOpen, ExternalLink, X } from 'lucide-react';
 import YouTubeGlyph from '../components/icons/YouTubeGlyph';
 import { CompletedBadge } from '../components/library/LibraryCards';
 import { useTranslation } from 'react-i18next';
 import { albumKeyForVideo, isExternalAlbumKey, toAlbumRouteParam } from '../lib/paths';
 import { timeAgo, useToday } from '../lib/dates';
 import { inLibrary, Video } from '../types/video';
+import { GUIDE_URL } from '../lib/links';
+import { notify } from '../lib/notify';
 import '../styles/dashboard.css';
 
 /** How many of the newest videos the "Recently added" strip shows. */
@@ -58,6 +60,26 @@ export default function Dashboard() {
   const [libraryPreview, setLibraryPreview] = useState<{ key: string; title: string; cover?: string | null; count: number; isExternal: boolean }[]>([]);
   const [recentVideos, setRecentVideos] = useState<Video[]>([]);
   const navigate = useNavigate();
+  // The guide banner stays hidden until settings say this profile hasn't
+  // closed it, so it never flashes up for someone who already has.
+  const [showGuide, setShowGuide] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/settings')
+      .then(res => res.json())
+      .then(data => setShowGuide(data?.guide_dismissed === false))
+      .catch(() => {});
+  }, []);
+
+  const dismissGuide = () => {
+    setShowGuide(false);
+    fetch('/api/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ guide_dismissed: true }),
+    }).catch(() => {});
+    notify(t('dashboard.guide_dismissed'), 'ok');
+  };
 
   useEffect(() => {
     fetch('/api/schedule')
@@ -209,6 +231,23 @@ export default function Dashboard() {
           </div>
         )}
       </header>
+
+      {showGuide && (
+        <aside className="dash-guide">
+          <span className="dash-guide-icon"><BookOpen size={20} /></span>
+          <div className="dash-guide-text">
+            <strong>{t('dashboard.guide_title')}</strong>
+            <span>{t('dashboard.guide_text')}</span>
+          </div>
+          <a className="rx-btn dash-guide-open" href={GUIDE_URL} target="_blank" rel="noopener noreferrer">
+            {t('dashboard.guide_open')}
+            <ExternalLink size={15} />
+          </a>
+          <button type="button" className="dash-guide-x" onClick={dismissGuide} aria-label={t('dashboard.guide_dismiss')} title={t('dashboard.guide_dismiss')}>
+            <X size={18} />
+          </button>
+        </aside>
+      )}
 
       {todaySchedule && !isRestDay && todaySchedule.workout ? (
         <section className="dash-today">

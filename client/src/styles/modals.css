@@ -165,9 +165,8 @@
 .md-playlist { display: flex; flex-direction: column; gap: 8px; padding-top: 4px; }
 .md-playlist strong { font-size: 14px; }
 .md-playlist p { margin: 0; font-size: 12px; color: var(--t-ink-muted); }
-.md-playlist-row { display: flex; gap: 8px; }
-.md-playlist-row .md-field { flex: 1; height: 46px; }
-.md-playlist-row .md-btn { height: 46px; padding: 0 16px; font-size: 14px; }
+.md-check { display: flex; align-items: center; gap: 10px; font-size: 14px; cursor: pointer; }
+.md-check input { width: 18px; height: 18px; margin: 0; accent-color: var(--t-accent, currentColor); flex-shrink: 0; }
 
 .md-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .md-stat { min-width: 0; padding: 6px 0 6px 20px; }
@@ -246,7 +245,8 @@
 /* Plan cover picker */
 .cv-tabs { align-self: flex-start; }
 .cv-current { display: flex; gap: 14px; align-items: center; padding: 10px; border: 1px solid var(--t-border); border-radius: 16px; background: var(--t-surface); }
-.cv-current img { width: 112px; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 10px; flex-shrink: 0; background: var(--t-tint); }
+.cv-current-img { width: 112px; aspect-ratio: 16 / 9; border-radius: 10px; overflow: hidden; flex-shrink: 0; background: var(--t-tint); }
+.cv-current-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .cv-current-actions { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 10px; }
 .cv-switch, .cv-remove { display: flex; align-items: center; gap: 8px; padding: 0; border: 0; background: none; color: var(--t-ink); font-family: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
 .cv-remove { color: var(--t-ink-muted); }
@@ -254,6 +254,11 @@
 .cv-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
 .cv-thumb { position: relative; padding: 0; border: 0; border-radius: 12px; overflow: hidden; background: var(--t-tint); cursor: pointer; aspect-ratio: 16 / 9; transition: transform 0.15s, box-shadow 0.15s; }
 .cv-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* The same blur the plan cards use (plans.css .pl-cover > img.is-blurred); the
+   slight zoom keeps the soft edge inside the rounded frame. */
+.cv-current-img img, .cv-thumb img { transition: filter 0.2s, transform 0.2s; }
+.cv-current.is-blurred .cv-current-img img,
+.cv-grid.is-blurred .cv-thumb img { filter: blur(6px); transform: scale(1.1); }
 .cv-thumb:hover { transform: translateY(-2px); box-shadow: var(--t-shadow-lift); }
 .cv-thumb.is-on { outline: 2px solid var(--t-accent); outline-offset: 2px; }
 .cv-thumb:focus-visible { outline: 2px solid var(--t-accent); outline-offset: 2px; }
@@ -267,7 +272,7 @@
 .cv-drop input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
 .cv-drop.is-busy input { cursor: default; }
 @media (max-width: 767px) {
-  .cv-current img { width: 88px; }
+  .cv-current-img { width: 88px; }
   .cv-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 

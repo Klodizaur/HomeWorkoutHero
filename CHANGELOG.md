@@ -5,6 +5,45 @@ All notable changes to MyFitnessPlan are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.0] - 2026-10-15
+
+A user guide, a refreshed website, smarter library scans and simpler plan sharing, plus a fix for calendars around the clocks changing.
+
+### Added
+
+**Guide and website**
+
+- **A user guide** at [bigdeckit.gitbook.io/myfitnessplan](https://bigdeckit.gitbook.io/myfitnessplan): how-tos for plans, your library and the rest of the app, with answers to common questions.
+- A banner on the Dashboard points new users to the guide. Close it and it stays closed for your profile, on every device. The guide is always in Settings › About.
+- **The website has been refreshed**: [myfitnessplan.bigdeckit.com](https://myfitnessplan.bigdeckit.com/), also linked from Settings › About.
+
+**Library**
+
+- **Scanning tags new videos for you.** A video found for the first time is tagged from its file name and folders, the same way imported YouTube playlists are: `Nogi/hantle_20min.mp4` gets legs and dumbbells. Videos that were already in your library keep their tags exactly as they are.
+
+**Plans**
+
+- Importing a plan made from YouTube playlists offers to add each playlist to your library as an album, with a tick box. The file already knows which playlists it uses, so there's no link to find. Playlists you already have aren't offered.
+
+### Changed
+
+- Sharing a YouTube plan no longer tells you to send the playlist link as well: the videos travel inside the plan file.
+- The import dialog no longer asks you to paste a playlist link.
+- Changing a plan's cover: "Blur background" is shown straight away instead of only after you've picked a cover, and the cover thumbnails blur and unblur as you flip it, so you can see the result before choosing.
+
+### Fixed
+
+- Around a daylight-saving clock change, the Calendar and Dashboard could show the same date twice, pushing every later workout back a day.
+- Titles and file names with "ł" are tagged properly: "Całe ciało" now counts as full body.
+- Pop-up messages line up: the icon, the text and the close button sit on one line.
+
+### Internal
+
+- An automated test suite (Vitest) covers tagging, plan import and export, the schedule, profile separation and library rescans, against a throwaway database. `npm test` runs it.
+- A GitHub Actions workflow typechecks the client and server and runs the tests on every push and pull request to `main`.
+- `MFP_DATA_DIR` points the server's data folder somewhere else (used by the tests). Without it, data stays where it always was.
+- The `/api/settings` routes moved from `server/src/index.ts` to `server/src/routes/settings.ts`, unchanged, so tests can load them. `GET /api/settings` also returns `guide_dismissed` for the current profile.
+
 ## [2.1.0] - 2026-10-05
 
 Profiles, so everyone in the house can train with their own plans and progress, an app for Android TV and Fire TV, and plans whose rhythm can change from week to week.

@@ -227,8 +227,11 @@ export interface PlanImportReport {
   missing: number;
   /** Titles of the missing local files, for the "what won't come across" list. */
   missingTitles: string[];
-  /** Playlists this plan draws on, so the import dialog can offer to add them. */
-  playlists: { id: string; title: string | null }[];
+  /**
+   * Playlists this plan draws on, so the import dialog can offer to add each
+   * as an album. `inLibrary` means this profile already has it.
+   */
+  playlists: { id: string; title: string | null; inLibrary: boolean }[];
 }
 
 /** Validate the outer shape of an uploaded file, or explain what's wrong. */
@@ -274,6 +277,9 @@ function uniquePlanName(profileId: string, name: string, alsoTaken: Set<string>)
 /** What an import would do, without doing any of it. */
 export function analyzeImport(profileId: string, file: PlanExportFile): PlanImportReport[] {
   const namesTaken = new Set<string>();
+  const playlistInLibrary = db.prepare(
+    `SELECT 1 FROM ${PROFILE_VIDEOS} AS videos WHERE external_playlist_id = ? AND in_library = 1 LIMIT 1`
+  );
 
   return file.plans.map(plan => {
     let matched = 0;
@@ -309,7 +315,11 @@ export function analyzeImport(profileId: string, file: PlanExportFile): PlanImpo
       willCreate,
       missing,
       missingTitles,
-      playlists: [...playlists].map(([id, title]) => ({ id, title })),
+      playlists: [...playlists].map(([id, title]) => ({
+        id,
+        title,
+        inLibrary: Boolean(playlistInLibrary.get(profileId, id)),
+      })),
     };
   });
 }

@@ -2,14 +2,14 @@ import { FastifyInstance } from 'fastify';
 import fs from 'fs';
 import path from 'path';
 import { nanoid } from 'nanoid';
-import db from '../db.js';
+import db, { DATA_DIR } from '../db.js';
 import { FastifyBaseLogger } from 'fastify';
 import { importAvailable, PlaylistResolveError, PlaylistResolver, resolverFor } from '../external/index.js';
 import { formatVideoRow, VIDEO_COLUMNS } from './library.js';
 import { autoTagFromTitle } from '../autoTag.js';
 import { PROFILE_VIDEOS, requireProfile } from '../profiles.js';
 
-const THUMB_DIR = path.join(process.cwd(), 'data', 'thumbnails');
+const THUMB_DIR = path.join(DATA_DIR, 'thumbnails');
 
 /** A thumbnail is a small JPEG; anything larger is not what we asked for. */
 const MAX_THUMB_BYTES = 5 * 1024 * 1024;

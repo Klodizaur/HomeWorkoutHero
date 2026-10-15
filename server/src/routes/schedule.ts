@@ -273,7 +273,10 @@ export default async function (fastify: FastifyInstance) {
           workoutIndex++;
         }
 
-        currentDate.setDate(currentDate.getDate() + 1);
+        // Stepped in UTC, the way it's read back above. A local step would
+        // follow the clocks: across a daylight-saving change the day would move
+        // by 23 or 25 hours and the date would repeat or skip one.
+        currentDate.setUTCDate(currentDate.getUTCDate() + 1);
         patternIndex = (patternIndex + 1) % pattern.length;
       }
 

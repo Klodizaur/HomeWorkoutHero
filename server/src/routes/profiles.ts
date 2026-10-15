@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import bcrypt from 'bcryptjs';
 import { nanoid } from 'nanoid';
-import db, { BACKUP_DIR, backupDatabase, PER_PROFILE_SETTINGS } from '../db.js';
+import db, { BACKUP_DIR, backupDatabase, DATA_DIR, PER_PROFILE_SETTINGS } from '../db.js';
 import {
   clearProfileCookie, currentProfileId, getProfile, isLocalRequest, listProfiles, ProfileRow,
   requireProfile, setProfileCookie, setProfileSetting,
@@ -44,7 +44,7 @@ function cleanAvatar(raw: unknown): string {
 // one: a new upload, switching back to a built-in picture, or deleting the
 // profile removes the old file.
 
-const PICTURE_DIR = path.join(process.cwd(), 'data', 'profile-pictures');
+const PICTURE_DIR = path.join(DATA_DIR, 'profile-pictures');
 const PICTURE_FILE = /^[A-Za-z0-9_-]+\.jpg$/;
 const MAX_PICTURE_BYTES = 512 * 1024;
 

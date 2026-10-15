@@ -2,7 +2,17 @@ import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
 
-const dataDir = path.join(process.cwd(), 'data');
+/**
+ * Where the database and everything beside it (thumbnails, backgrounds,
+ * pictures, backups) live: `data` in the working directory. MFP_DATA_DIR
+ * points it somewhere else, which is how the test suite runs against a
+ * throwaway folder instead of a real library.
+ */
+export const DATA_DIR = process.env.MFP_DATA_DIR
+  ? path.resolve(process.env.MFP_DATA_DIR)
+  : path.join(process.cwd(), 'data');
+
+const dataDir = DATA_DIR;
 const thumbDir = path.join(dataDir, 'thumbnails');
 [dataDir, thumbDir].forEach(dir => {
   if (!fs.existsSync(dir)) {
