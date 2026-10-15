@@ -103,6 +103,9 @@ const INTENSITY_RULES: Rule[] = [
 /** Lowercase, strip diacritics, and reduce to space-separated words. */
 function normalize(text: string): string {
   return (text || '')
+    // "ł" isn't a letter with an accent in Unicode terms, so NFD leaves it
+    // whole and the filter below would drop it ("całe" → "ca e").
+    .replace(/[łŁ]/g, 'l')
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()

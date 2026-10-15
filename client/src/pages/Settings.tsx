@@ -14,6 +14,7 @@ import BackupSection from '../components/profiles/BackupSection';
 import { PictureError, squarePicture } from '../lib/imageResize';
 import { announceSettingsSaved } from '../lib/settingsEvents';
 import { THEMES } from '../lib/themes';
+import { GUIDE_URL } from '../lib/links';
 import '../styles/settings.css';
 
 /**
@@ -570,6 +571,10 @@ export default function Settings() {
               <div className="st-about-item">
                 <h3>{t('about.description')}</h3>
                 <p>{t('about.description_text')}</p>
+              </div>
+              <div className="st-about-item">
+                <h3>{t('about.guide')}</h3>
+                <p>{t('about.guide_text')} <a href={GUIDE_URL} target="_blank" rel="noopener noreferrer">bigdeckit.gitbook.io/myfitnessplan</a></p>
               </div>
               <div className="st-about-item">
                 <h3>{t('about.website')}</h3>

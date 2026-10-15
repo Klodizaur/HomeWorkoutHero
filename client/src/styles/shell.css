@@ -491,7 +491,10 @@
 .toast > svg { flex-shrink: 0; margin-top: 1px; color: var(--t-accent-soft); }
 .toast--error > svg { color: #FF9C8F; }
 .toast span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
-.toast button { width: 28px; height: 28px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; padding: 0; border: none; border-radius: 8px; background: none; color: inherit; opacity: 0.7; cursor: pointer; }
+/* The close button is taller than a line of text. Its negative margin centres it
+   on the first line (like the icon) without making the toast taller, so a
+   one-line toast is centred and a longer one still reads from the top. */
+.toast button { width: 28px; height: 28px; margin: -4px 0; flex-shrink: 0; display: flex; align-items: center; justify-content: center; padding: 0; border: none; border-radius: 8px; background: none; color: inherit; opacity: 0.7; cursor: pointer; }
 .toast button:hover { opacity: 1; }
 
 .job,

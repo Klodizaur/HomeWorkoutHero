@@ -1,5 +1,5 @@
 import { FastifyInstance } from 'fastify';
-import db, { fileCreatedAt } from '../db.js';
+import db, { DATA_DIR, fileCreatedAt } from '../db.js';
 import fs from 'fs';
 import path from 'path';
 import { nanoid } from 'nanoid';
@@ -7,9 +7,10 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import { rematchAllPlans } from '../matcher.js';
 import { getProfileSetting, PROFILE_VIDEOS, requireProfile, setProfileSetting } from '../profiles.js';
+import { autoTagFromTitle } from '../autoTag.js';
 
 const execPromise = promisify(exec);
-const THUMB_DIR = path.join(process.cwd(), 'data', 'thumbnails');
+const THUMB_DIR = path.join(DATA_DIR, 'thumbnails');
 
 // Supported video extensions
 const VIDEO_EXTENSIONS = ['.mp4', '.mkv', '.avi', '.mov', '.webm'];
@@ -377,8 +378,21 @@ normalizedDir = path.resolve(normalizedDir);
         id = nanoid();
         const thumbnailPath = await generateThumbnail(file, id);
         const duration = await probeDuration(file);
-        db.prepare('INSERT INTO videos (id, filename, filepath, relative_path, thumbnail_path, duration_seconds, file_created_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
-          .run(id, path.basename(file), file, relativePath, thumbnailPath, duration, fileCreatedAt(file));
+        // Seeded from the file name and its folders ("Legs/hantle_20min.mp4"),
+        // the same way imported playlists are. Only a file no profile has
+        // scanned before gets a new row, so this never touches existing tags.
+        const tags = autoTagFromTitle(
+          relativePath.replace(/\.[^./]+$/, '').replace(/[\/_.-]+/g, ' ')
+        );
+        db.prepare(`INSERT INTO videos
+            (id, filename, filepath, relative_path, thumbnail_path, duration_seconds, file_created_at,
+             equipment, training_type, body_parts, intensity)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+          .run(
+            id, path.basename(file), file, relativePath, thumbnailPath, duration, fileCreatedAt(file),
+            JSON.stringify(tags.equipment), JSON.stringify(tags.training_type),
+            JSON.stringify(tags.body_parts), tags.intensity
+          );
       }
       // In this profile's library, at its path from this profile's folder. The
       // favourite star survives a rescan.

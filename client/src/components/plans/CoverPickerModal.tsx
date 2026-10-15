@@ -42,20 +42,25 @@ export default function CoverPickerModal(props: Props) {
           <button type="button" className={tab === 'upload' ? 'is-on' : ''} onClick={() => setTab('upload')}>{t('plans.upload_image')}</button>
         </div>
 
-        {currentUrl && (
-          <div className="cv-current">
-            <img src={currentUrl} alt="" />
-            <div className="cv-current-actions">
-              <button type="button" className="cv-switch" aria-pressed={blurred} onClick={() => props.onBlur(!blurred)}>
-                <span className={`lib-scope-track${blurred ? ' is-on' : ''}`}><span className="lib-scope-knob" /></span>
-                {t('plans.blur_background')}
-              </button>
+        {/* The blur switch shows even before a cover is picked: it is a
+            setting of the plan, and hiding it until the second visit meant
+            most people never found it. */}
+        {/* is-blurred previews the switch on the current cover and on every
+            candidate, so you see the result before picking one. */}
+        <div className={`cv-current${blurred ? ' is-blurred' : ''}`}>
+          {currentUrl && <span className="cv-current-img"><img src={currentUrl} alt="" /></span>}
+          <div className="cv-current-actions">
+            <button type="button" className="cv-switch" aria-pressed={blurred} onClick={() => props.onBlur(!blurred)}>
+              <span className={`lib-scope-track${blurred ? ' is-on' : ''}`}><span className="lib-scope-knob" /></span>
+              {t('plans.blur_background')}
+            </button>
+            {currentUrl && (
               <button type="button" className="cv-remove" onClick={props.onRemove}>
                 <Trash2 size={15} />{t('plans.remove_background')}
               </button>
-            </div>
+            )}
           </div>
-        )}
+        </div>
 
         {tab === 'thumbnail' ? (
           loading ? (
@@ -63,7 +68,7 @@ export default function CoverPickerModal(props: Props) {
           ) : videos.length === 0 ? (
             <p className="md-text">{t('plans.builder_no_videos')}</p>
           ) : (
-            <div className="cv-grid">
+            <div className={`cv-grid${blurred ? ' is-blurred' : ''}`}>
               {videos.map(video => {
                 const on = Boolean(currentUrl && video.thumbnail_path && currentUrl.endsWith(video.thumbnail_path));
                 return (

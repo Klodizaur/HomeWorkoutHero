@@ -18,7 +18,7 @@ interface ImportReport {
   willCreate: number;
   missing: number;
   missingTitles: string[];
-  playlists: { id: string; title: string | null }[];
+  playlists: { id: string; title: string | null; inLibrary: boolean }[];
 }
 
 /**
@@ -28,10 +28,11 @@ interface ImportReport {
  * anything is written, because "18 of 24 videos found" is the one thing worth
  * knowing and nobody will go looking for it afterwards.
  *
- * The playlist field is the same idea. A YouTube plan works without it — the
- * videos are recreated from the file — but adding the playlist brings the
- * thumbnails and files them in the Library as an album, and the moment to
- * mention that is here, not in a page of instructions.
+ * The playlist checkboxes are the same idea. A YouTube plan works without
+ * them — the videos are recreated from the file — but adding the playlist
+ * brings the thumbnails and the rest of its videos into the Library as an
+ * album. The file already records which playlists it draws on, so this is a
+ * yes/no question, never a link to go and find.
  */
 export default function ImportPlanModal({ onClose, onImported }: Props) {
   const { t } = useTranslation();
@@ -40,8 +41,8 @@ export default function ImportPlanModal({ onClose, onImported }: Props) {
   const [reports, setReports] = useState<ImportReport[] | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
-  const [playlistUrl, setPlaylistUrl] = useState('');
-  const [playlistDone, setPlaylistDone] = useState('');
+  /** Playlist IDs the user ticked to add as albums. */
+  const [addPlaylists, setAddPlaylists] = useState<Set<string>>(new Set());
 
   const analyze = async (parsed: any) => {
     const res = await fetch('/api/plan/import', {
@@ -56,12 +57,12 @@ export default function ImportPlanModal({ onClose, onImported }: Props) {
       return;
     }
     setReports(data.reports);
+    setAddPlaylists(new Set());
   };
 
   const pickFile = async (selected: File) => {
     setError('');
     setReports(null);
-    setPlaylistDone('');
     setFileName(selected.name);
     setBusy(true);
     try {
@@ -71,35 +72,6 @@ export default function ImportPlanModal({ onClose, onImported }: Props) {
     } catch {
       fileRef.current = null;
       setError(t('transfer.error_not_a_plan_file'));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  /** Import the playlist, then re-analyse: the numbers below change as a result. */
-  const addPlaylist = async () => {
-    const url = playlistUrl.trim();
-    if (!url || busy) return;
-    setBusy(true);
-    setError('');
-    try {
-      const res = await fetch('/api/external/import', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        const key = `import.error_${data?.code || 'failed'}`;
-        const translated = t(key);
-        setError(translated === key ? (data?.error || t('import.error_failed')) : translated);
-        return;
-      }
-      setPlaylistDone(t('transfer.playlist_added', { count: data?.totalCount ?? 0, title: data?.playlistTitle || '' }));
-      setPlaylistUrl('');
-      if (fileRef.current) await analyze(fileRef.current);
-    } catch {
-      setError(t('import.error_failed'));
     } finally {
       setBusy(false);
     }
@@ -120,6 +92,18 @@ export default function ImportPlanModal({ onClose, onImported }: Props) {
         setError(t(`transfer.error_${data?.code || 'failed'}`));
         return;
       }
+      // The plans are in. Playlists come after, as a bonus: re-importing
+      // updates the plan's videos in place, so a failure here costs only the
+      // thumbnails and never the plan.
+      for (const id of addPlaylists) {
+        try {
+          await fetch('/api/external/import', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: `https://www.youtube.com/playlist?list=${id}` }),
+          });
+        } catch { /* see above */ }
+      }
       onImported((data.reports as ImportReport[]).map(r => r.importedAs));
     } catch {
       setError(t('transfer.error_failed'));
@@ -137,8 +121,20 @@ export default function ImportPlanModal({ onClose, onImported }: Props) {
     setFileName('');
     setReports(null);
     setError('');
-    setPlaylistDone('');
+    setAddPlaylists(new Set());
   };
+
+  // Every playlist across the file's plans, once each, minus ones already here.
+  const offeredPlaylists = [
+    ...new Map(
+      (reports ?? []).flatMap(r => r.playlists).filter(p => !p.inLibrary).map(p => [p.id, p])
+    ).values(),
+  ];
+  const togglePlaylist = (id: string) => setAddPlaylists(prev => {
+    const next = new Set(prev);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
 
   return (
     <Modal width={520} onClose={onClose} busy={busy} label={t('transfer.import_title')}>
@@ -213,28 +209,21 @@ export default function ImportPlanModal({ onClose, onImported }: Props) {
           </div>
         ))}
 
-        {/* Offered whenever a file is loaded, not only when something is
-            missing — the plan may import cleanly and still be nicer with the
-            playlist's thumbnails behind it. */}
-        {reports && (
+        {offeredPlaylists.length > 0 && (
           <div className="md-playlist">
-            <strong>{t('transfer.playlist_q')}</strong>
+            <strong>{t('transfer.playlist_q', { count: offeredPlaylists.length })}</strong>
             <p>{t('transfer.playlist_hint')}</p>
-            <div className="md-playlist-row">
-              <label className="md-field">
+            {offeredPlaylists.map(p => (
+              <label className="md-check" key={p.id}>
                 <input
-                  value={playlistUrl}
-                  onChange={e => setPlaylistUrl(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter') addPlaylist(); }}
-                  placeholder="https://www.youtube.com/playlist?list=..."
+                  type="checkbox"
+                  checked={addPlaylists.has(p.id)}
+                  onChange={() => togglePlaylist(p.id)}
                   disabled={busy}
                 />
+                <span>{p.title || t('library.untitled_playlist')}</span>
               </label>
-              <button type="button" className="md-btn" onClick={addPlaylist} disabled={busy || !playlistUrl.trim()}>
-                {t('transfer.playlist_add')}
-              </button>
-            </div>
-            {playlistDone && <div className="md-good"><Check size={14} />{playlistDone}</div>}
+            ))}
           </div>
         )}
 

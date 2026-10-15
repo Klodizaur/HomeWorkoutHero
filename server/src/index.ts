@@ -6,7 +6,7 @@ import fastifyStatic from '@fastify/static';
 import path from 'path';
 import fs from 'fs';
 import os from 'os';
-import db from './db.js';
+import db, { DATA_DIR } from './db.js';
 import libraryRoutes from './routes/library.js';
 import planRoutes from './routes/plan.js';
 import scheduleRoutes from './routes/schedule.js';
@@ -14,6 +14,7 @@ import profileRoutes from './routes/profile.js';
 import externalRoutes from './routes/external.js';
 import aiRoutes from './routes/ai.js';
 import profilesRoutes from './routes/profiles.js';
+import settingsRoutes from './routes/settings.js';
 import { startBackupSchedule } from './profileBackup.js';
 import {
   currentProfileId, getProfileSetting, isLocalRequest, isProfileSetting, PROFILE_VIDEOS, requireProfile, setProfileSetting,
@@ -403,17 +404,17 @@ fastify.get('/videos/hls/:videoId/segment-:index.ts', async (request, reply) => 
 // Serve thumbnails
 fastify.get('/thumbnails/:filename', async (request, reply) => {
   const { filename } = request.params as { filename: string };
-  const thumbPath = path.join(process.cwd(), 'data', 'thumbnails', filename);
+  const thumbPath = path.join(DATA_DIR, 'thumbnails', filename);
 
   if (!fs.existsSync(thumbPath)) {
     return reply.code(404).send({ error: 'Thumbnail not found' });
   }
 
-  return reply.sendFile(filename, path.join(process.cwd(), 'data', 'thumbnails'));
+  return reply.sendFile(filename, path.join(DATA_DIR, 'thumbnails'));
 });
 
 // Serve custom plan background images
-const planBackgroundsDir = path.join(process.cwd(), 'data', 'plan-backgrounds');
+const planBackgroundsDir = path.join(DATA_DIR, 'plan-backgrounds');
 if (!fs.existsSync(planBackgroundsDir)) {
   fs.mkdirSync(planBackgroundsDir, { recursive: true });
 }
@@ -436,6 +437,7 @@ fastify.register(profileRoutes, { prefix: '/api/profile' });
 fastify.register(externalRoutes, { prefix: '/api/external' });
 fastify.register(aiRoutes, { prefix: '/api/ai' });
 fastify.register(profilesRoutes, { prefix: '/api/profiles' });
+fastify.register(settingsRoutes, { prefix: '/api/settings' });
 
 // Exposed so the UI shows the running version automatically.
 /**
@@ -468,9 +470,8 @@ fastify.post('/api/backup/full', async (request, reply) => {
   try {
     fs.mkdirSync(target, { recursive: true });
     db.prepare('VACUUM INTO ?').run(path.join(target, 'workout-planner.db'));
-    const dataDir = path.join(process.cwd(), 'data');
     for (const sub of ['thumbnails', 'plan-backgrounds', 'profile-pictures']) {
-      const from = path.join(dataDir, sub);
+      const from = path.join(DATA_DIR, sub);
       if (fs.existsSync(from)) fs.cpSync(from, path.join(target, sub), { recursive: true, dereference: true });
     }
   } catch (err) {
@@ -480,49 +481,6 @@ fastify.post('/api/backup/full', async (request, reply) => {
   return reply.send({ success: true, folder: target });
 });
 
-// Generic settings route
-// Generic settings: the shared ones, with the profile's own values on top
-// (rhythm, theme, calendar view, library folder, exclusions).
-fastify.get('/api/settings', async (request, reply) => {
-  const profileId = requireProfile(request, reply);
-  if (!profileId) return;
-  const settings = db.prepare('SELECT * FROM settings').all();
-  const parse = (key: string, value: string | null) =>
-    (key === 'workout_pattern' || key === 'exclude_paths') ? JSON.parse(value || '[]') : value;
-  const settingsObj = settings.reduce((acc: any, curr: any) => {
-    // `ai_*` rows hold the optional AI integration's config, including an API
-    // key. They are served by /api/ai/settings, which never returns the key —
-    // this endpoint must not leak it through the generic dump. Same for the
-    // secret profile cookies are signed with.
-    if (curr.key.startsWith('ai_') || curr.key === 'profile_secret') return acc;
-    acc[curr.key] = parse(curr.key, isProfileSetting(curr.key) ? getProfileSetting(profileId, curr.key) : curr.value);
-    return acc;
-  }, {});
-  return reply.send(settingsObj);
-});
-
-fastify.post('/api/settings', async (request, reply) => {
-  const profileId = requireProfile(request, reply);
-  if (!profileId) return;
-  const body = request.body as any;
-
-  if (body.workout_pattern !== undefined) {
-    setProfileSetting(profileId, 'workout_pattern', JSON.stringify(body.workout_pattern));
-  }
-  if (body.start_date !== undefined) {
-    setProfileSetting(profileId, 'start_date', body.start_date);
-  }
-  if (body.exclude_paths !== undefined) {
-    setProfileSetting(profileId, 'exclude_paths', JSON.stringify(body.exclude_paths));
-  }
-  if (body.theme !== undefined) {
-    setProfileSetting(profileId, 'theme', body.theme);
-  }
-  if (body.calendar_view !== undefined) {
-    setProfileSetting(profileId, 'calendar_view', body.calendar_view);
-  }
-  return reply.send({ success: true });
-});
 
 
 const port = Number(process.env.PORT) || 3000;

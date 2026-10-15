@@ -1,11 +1,11 @@
 import { FastifyInstance } from 'fastify';
-import db from '../db.js';
+import db, { DATA_DIR } from '../db.js';
 import { nanoid } from 'nanoid';
 import { parse } from 'csv-parse/sync';
 import path from 'path';
 import fs from 'fs';
 
-const planBackgroundsDir = path.join(process.cwd(), 'data', 'plan-backgrounds');
+const planBackgroundsDir = path.join(DATA_DIR, 'plan-backgrounds');
 if (!fs.existsSync(planBackgroundsDir)) {
   fs.mkdirSync(planBackgroundsDir, { recursive: true });
 }
