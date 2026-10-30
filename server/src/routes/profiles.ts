@@ -401,7 +401,7 @@ export default async function (fastify: FastifyInstance) {
     if (!profileId) return;
     const day = new Date().toISOString().slice(0, 10);
     return reply
-      .header('Content-Disposition', `attachment; filename="myfitnessplan-profile-${profileId}-${day}.json"`)
+      .header('Content-Disposition', `attachment; filename="homeworkouthero-profile-${profileId}-${day}.json"`)
       .type('application/json')
       .send(JSON.stringify(buildProfileBackup(profileId)));
   });

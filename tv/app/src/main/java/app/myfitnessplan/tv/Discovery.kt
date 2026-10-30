@@ -16,12 +16,12 @@ import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
- * Finds computers running MyFitnessPlan with Share on Local Network on, so the
+ * Finds computers running HomeWorkoutHero with Share on Local Network on, so the
  * TV can offer them instead of asking for an address.
  *
  * It asks every address on the TV's own network the same question Connect
  * asks — `GET /api/version` on the sharing port — and lists whoever answers
- * like MyFitnessPlan. Nothing extra has to run on the computer: sharing already
+ * like HomeWorkoutHero. Nothing extra has to run on the computer: sharing already
  * answers that. A home network is at most a few hundred addresses, which takes
  * a couple of seconds with short timeouts and many at once.
  */
@@ -93,7 +93,7 @@ object Discovery {
         }
     }
 
-    /** The computer's name if MyFitnessPlan answers at [base], else null. */
+    /** The computer's name if HomeWorkoutHero answers at [base], else null. */
     private fun ask(base: String): String? {
         val conn = try {
             URL("$base/api/version").openConnection() as HttpURLConnection
@@ -107,7 +107,7 @@ object Discovery {
             val json = JSONObject(conn.inputStream.bufferedReader().use { it.readText() })
             if (!json.has("version")) return null
             // Older desktop versions don't send a name; the address stands in.
-            json.optString("name").ifBlank { "MyFitnessPlan" }
+            json.optString("name").ifBlank { "HomeWorkoutHero" }
         } catch (e: Exception) {
             null
         } finally {

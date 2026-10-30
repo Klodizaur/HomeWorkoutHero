@@ -23,7 +23,10 @@ import db from './db.js';
 import { PROFILE_VIDEOS } from './profiles.js';
 import { nanoid } from 'nanoid';
 
-export const PLAN_EXPORT_FORMAT = 'myfitnessplan.plan';
+export const PLAN_EXPORT_FORMAT = 'homeworkouthero.plan';
+/** Every format a plan file may carry: plans exported before the app was renamed
+ *  from MyFitnessPlan to HomeWorkoutHero say `myfitnessplan.plan`, and still import. */
+export const PLAN_IMPORT_FORMATS: readonly string[] = [PLAN_EXPORT_FORMAT, 'myfitnessplan.plan'];
 export const PLAN_EXPORT_VERSION = 1;
 
 // Defensive caps. The file comes from outside, and "a plan" that claims a
@@ -237,7 +240,7 @@ export interface PlanImportReport {
 /** Validate the outer shape of an uploaded file, or explain what's wrong. */
 export function validateExportFile(data: any): { ok: true; file: PlanExportFile } | { ok: false; error: string } {
   if (!data || typeof data !== 'object') return { ok: false, error: 'not_a_plan_file' };
-  if (data.format !== PLAN_EXPORT_FORMAT) return { ok: false, error: 'not_a_plan_file' };
+  if (!PLAN_IMPORT_FORMATS.includes(data.format)) return { ok: false, error: 'not_a_plan_file' };
   if (typeof data.version !== 'number' || data.version > PLAN_EXPORT_VERSION) {
     return { ok: false, error: 'newer_version' };
   }

@@ -1,22 +1,22 @@
 🇬🇧 English: [README.md](README.md)
 
 <p align="center">
-  <img src="client/public/logo.png" alt="MyFitnessPlan Logo" width="120"/>
+  <img src="client/public/logo.png" alt="HomeWorkoutHero Logo" width="120"/>
 </p>
-<h1 align="center">MyFitnessPlan - Open Source Self-Hosted Home Video Workout Planner</h1>
+<h1 align="center">HomeWorkoutHero - Open Source Self-Hosted Home Video Workout Planner</h1>
 
-![Panel MyFitnessPlan](./screenshots/dashboard_orange.jpg)
+![Panel HomeWorkoutHero](./screenshots/dashboard_orange.jpg)
 Samodzielnie hostowana lokalna aplikacja do zarządzania własnymi planami treningowymi z elastycznymi schematami harmonogramów opartymi na Twojej własnej kolekcji wideo.
 
-MyFitnessPlan to osobiste narzędzie do planowania treningów stworzone z myślą o organizowaniu i śledzeniu rutyn treningowych przy użyciu kolekcji własnych materiałów wideo. W przeciwieństwie do sztywnych, tygodniowych harmonogramów, MyFitnessPlan pozwala definiować własne schematy treningowe dopasowane do Twojego stylu życia — niezależnie od tego, czy jest to 3 dni treningu i 1 dzień przerwy, czy dowolny inny układ.
+HomeWorkoutHero to osobiste narzędzie do planowania treningów stworzone z myślą o organizowaniu i śledzeniu rutyn treningowych przy użyciu kolekcji własnych materiałów wideo. W przeciwieństwie do sztywnych, tygodniowych harmonogramów, HomeWorkoutHero pozwala definiować własne schematy treningowe dopasowane do Twojego stylu życia — niezależnie od tego, czy jest to 3 dni treningu i 1 dzień przerwy, czy dowolny inny układ.
 
-- **Strona internetowa**: [myfitnessplan.bigdeckit.com](https://myfitnessplan.bigdeckit.com) — staram się ją aktualizować na bieżąco, to najprostszy sposób, żeby zobaczyć, jak to działa
-- **Pobieranie**: pobierz najnowszy instalator macOS `.dmg` lub Windows `.exe` ze strony [Releases](https://github.com/Klodizaur/MyFitnessPlan/releases). Nie potrzebujesz Node.js, npm ani terminala.
+- **Strona internetowa**: [homeworkouthero.com](https://homeworkouthero.com) — staram się ją aktualizować na bieżąco, to najprostszy sposób, żeby zobaczyć, jak to działa
+- **Pobieranie**: pobierz najnowszy instalator macOS `.dmg` lub Windows `.exe` ze strony [Releases](https://github.com/Klodizaur/HomeWorkoutHero/releases). Nie potrzebujesz Node.js, npm ani terminala.
 
 ## Funkcje
 
 ### Import treningów z arkuszy kalkulacyjnych
-![Import planu treningowego z Arkusza Google do MyFitnessPlan](./screenshots/1.%20import%20from%20spreadsheets.jpg)
+![Import planu treningowego z Arkusza Google do HomeWorkoutHero](./screenshots/1.%20import%20from%20spreadsheets.jpg)
 
 Łatwo importuj całą swoją bibliotekę treningów za pomocą prostych plików TSV lub CSV — kompatybilnych z Excel, Google Sheets i innymi programami do arkuszy kalkulacyjnych. Panel od razu pokazuje, co zaimportowałeś: dzisiejszy trening i to, ile z niego już ukończono.
 
@@ -43,11 +43,11 @@ Odtwarzaj filmy bez wychodzenia z aplikacji — obok nich widzisz cel treningu, 
 ### Lokalna biblioteka wideo i filtrowanie
 ![Biblioteka wideo pogrupowana według folderów, z filtrami sprzętu, typu treningu i partii ciała](./screenshots/6.%20library%20search%20%26%20filtering.jpg)
 
-Wskaż MyFitnessPlan swoje lokalne foldery wideo, a aplikacja sama je zeskanuje i uporządkuje. Szukaj i filtruj według sprzętu, typu treningu, partii ciała, intensywności lub długości, żeby znaleźć dokładnie to, czego potrzebujesz — oznacz gwiazdką te, do których wracasz, a trafią do albumu Ulubione — bez przesyłania jakiegokolwiek pliku gdziekolwiek.
+Wskaż HomeWorkoutHero swoje lokalne foldery wideo, a aplikacja sama je zeskanuje i uporządkuje. Szukaj i filtruj według sprzętu, typu treningu, partii ciała, intensywności lub długości, żeby znaleźć dokładnie to, czego potrzebujesz — oznacz gwiazdką te, do których wracasz, a trafią do albumu Ulubione — bez przesyłania jakiegokolwiek pliku gdziekolwiek.
 
 ### Oglądanie na telefonie lub tablecie
 
-Włącz **Share on Local Network** z ikony aplikacji desktopowej w pasku menu, a MyFitnessPlan stanie się dostępny dla wszystkiego w tej samej sieci Wi-Fi — otwórz podany adres w Safari lub Chrome na iPhonie albo iPadzie i masz tam swoje plany, bibliotekę i odtwarzacz. W Safari *Udostępnij → Dodaj do ekranu początkowego* doda mu własną ikonę.
+Włącz **Share on Local Network** z ikony aplikacji desktopowej w pasku menu, a HomeWorkoutHero stanie się dostępny dla wszystkiego w tej samej sieci Wi-Fi — otwórz podany adres w Safari lub Chrome na iPhonie albo iPadzie i masz tam swoje plany, bibliotekę i odtwarzacz. W Safari *Udostępnij → Dodaj do ekranu początkowego* doda mu własną ikonę.
 
 Filmy, które urządzenie potrafi odtworzyć samodzielnie, lecą **bezpośrednio** z pliku: bez konwersji, bez straty jakości i z natychmiastowym przewijaniem. To, czego naprawdę nie potrafi otworzyć — MKV na iPadzie, ścieżka AC-3 — jest konwertowane w locie, zamiast po prostu nie działać, i nawet wtedy przetwarzana jest tylko ta ścieżka, która tego wymaga. Odtwarzacz pokazuje, który z tych dwóch trybów jest w użyciu.
 
@@ -104,17 +104,17 @@ Wszystko poniżej jest dla osób, które chcą uruchomić aplikację z kodu źr�
 
 ### Samodzielne budowanie aplikacji desktopowej
 
-Folder `desktop/` pakuje MyFitnessPlan do tego samego samodzielnego instalatora macOS `.dmg` lub Windows `.exe`, jaki jest publikowany na stronie Releases (narzędzia obsługują też build na Linuksa, ale nie jest on jeszcze publikowany). Instrukcje budowania i informacje o tym, gdzie przechowywane są dane, znajdziesz w [desktop/README.md](desktop/README.md).
+Folder `desktop/` pakuje HomeWorkoutHero do tego samego samodzielnego instalatora macOS `.dmg` lub Windows `.exe`, jaki jest publikowany na stronie Releases (narzędzia obsługują też build na Linuksa, ale nie jest on jeszcze publikowany). Instrukcje budowania i informacje o tym, gdzie przechowywane są dane, znajdziesz w [desktop/README.md](desktop/README.md).
 
 ## ⚠️ Ważna informacja
 
-**MyFitnessPlan nie dostarcza żadnych filmów treningowych, treści ani ćwiczeń.** Użytkownik jest całkowicie odpowiedzialny za pozyskiwanie własnych materiałów wideo. Aplikacja służy wyłącznie do planowania i organizacji treningów. Upewnij się, że wszystkie wykorzystywane materiały są zgodne z prawem autorskim i warunkami korzystania z usług. Nie ponoszę odpowiedzialności za sposób używania aplikacji ani za treści pozyskiwane przez użytkownika.
+**HomeWorkoutHero nie dostarcza żadnych filmów treningowych, treści ani ćwiczeń.** Użytkownik jest całkowicie odpowiedzialny za pozyskiwanie własnych materiałów wideo. Aplikacja służy wyłącznie do planowania i organizacji treningów. Upewnij się, że wszystkie wykorzystywane materiały są zgodne z prawem autorskim i warunkami korzystania z usług. Nie ponoszę odpowiedzialności za sposób używania aplikacji ani za treści pozyskiwane przez użytkownika.
 
 ## Dodawanie treningów
 
 ### Import plików TSV/CSV
 
-MyFitnessPlan obsługuje masowy import treningów z plików TSV (Tab-Separated Values) lub CSV (Comma-Separated Values).
+HomeWorkoutHero obsługuje masowy import treningów z plików TSV (Tab-Separated Values) lub CSV (Comma-Separated Values).
 
 #### Przykładowe formaty treningów
 
@@ -237,7 +237,7 @@ Pliki konfiguracyjne można dostosować w:
 
 ## Licencja
 
-Ten projekt jest objęty licencją **MyFitnessPlan Community License**.
+Ten projekt jest objęty licencją **HomeWorkoutHero Community License**.
 
 ### Możesz:
 - Używać oprogramowania do własnych celów

@@ -1,9 +1,42 @@
 # Changelog
 
-All notable changes to MyFitnessPlan are documented here.
+All notable changes to HomeWorkoutHero (called MyFitnessPlan up to 2.2.0) are documented here.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [2.3.0] - 2026-10-30
+
+MyFitnessPlan is now **HomeWorkoutHero**. Same app, new name: updating keeps all your plans, videos and progress. Plus a new Pumpkin Patch theme, and YouTube workouts that play like they do on YouTube.
+
+### Changed
+
+**A new name**
+
+- The app is now called **HomeWorkoutHero**, everywhere you see it: the window, the header, Settings › About, the TV app and the installers.
+- **Nothing to move.** An install from before the rename keeps using its existing data folder, so it opens on the same plans, Log and settings. On a Mac, delete the old MyFitnessPlan app from Applications once HomeWorkoutHero opens.
+- **Old files still work.** Plan files and profile backups made with MyFitnessPlan import and restore as before. Files made with HomeWorkoutHero need HomeWorkoutHero to open them, so if you share a plan, the other person should update too.
+- **The TV app keeps working.** The MyFitnessPlan TV app connects to HomeWorkoutHero as before, and the new TV app (1.1.0) installs over it as an update.
+- The website is now [homeworkouthero.com](https://homeworkouthero.com) and the guide [bigdeckit.gitbook.io/homeworkouthero](https://bigdeckit.gitbook.io/homeworkouthero), both linked from Settings › About.
+
+**YouTube workouts**
+
+- YouTube videos play with YouTube's own controls, including its full-screen button, captions, quality and skipping ads, so full screen behaves exactly as it does on YouTube.
+- The close button, title and **Loop** sit in a strip above a YouTube video instead of over it, and the loop settings open there too. "Up next" sits below the video.
+- During a rest between loops the countdown takes the video's place, and full screen closes so you can see it.
+
+### Added
+
+- **Pumpkin Patch**, a new dark theme: a near-black background, pumpkin-orange buttons and a scatter of pumpkin seeds. Pick it in Settings › Appearance.
+
+### Fixed
+
+- On a computer, "up next" now appears near the end of a YouTube video, and the day's time left counts down while one plays.
+
+### Internal
+
+- New exports are marked `homeworkouthero.plan` and `homeworkouthero.profile-backup`; imports accept those and the old `myfitnessplan.*` names.
+- Names users never see keep the old name on purpose, because changing them would break existing installs: the desktop app ID, the TV app's package and user-agent marker, the profile cookie and the `MYFITNESSPLAN_*` environment variables.
 
 ## [2.2.0] - 2026-10-15
 
@@ -867,10 +900,10 @@ built around your own video files.
   and **English / Polish** UI.
 - Runs entirely on your machine — no cloud account and no subscription.
 
-[1.4.1]: https://github.com/Klodizaur/MyFitnessPlan/releases/tag/v1.4.1
-[1.4.0]: https://github.com/Klodizaur/MyFitnessPlan/releases/tag/v1.4.0
-[1.3.0]: https://github.com/Klodizaur/MyFitnessPlan/releases/tag/v1.3.0
-[1.2.0]: https://github.com/Klodizaur/MyFitnessPlan/releases/tag/v1.2.0
-[1.1.3]: https://github.com/Klodizaur/MyFitnessPlan/releases/tag/v.1.1.3
-[1.1.2]: https://github.com/Klodizaur/MyFitnessPlan/releases/tag/v.1.1.2
-[1.0.0]: https://github.com/Klodizaur/MyFitnessPlan/releases/tag/v1.0.0
+[1.4.1]: https://github.com/Klodizaur/HomeWorkoutHero/releases/tag/v1.4.1
+[1.4.0]: https://github.com/Klodizaur/HomeWorkoutHero/releases/tag/v1.4.0
+[1.3.0]: https://github.com/Klodizaur/HomeWorkoutHero/releases/tag/v1.3.0
+[1.2.0]: https://github.com/Klodizaur/HomeWorkoutHero/releases/tag/v1.2.0
+[1.1.3]: https://github.com/Klodizaur/HomeWorkoutHero/releases/tag/v.1.1.3
+[1.1.2]: https://github.com/Klodizaur/HomeWorkoutHero/releases/tag/v.1.1.2
+[1.0.0]: https://github.com/Klodizaur/HomeWorkoutHero/releases/tag/v1.0.0

@@ -13,6 +13,9 @@ val keystoreProps = rootProject.file("keystore.properties").takeIf { it.exists()
 }
 
 android {
+    // The old name stays in the package and application ID on purpose: a TV
+    // treats a new ID as a different app, so it would install beside the old one
+    // and lose its saved computer address.
     namespace = "app.myfitnessplan.tv"
     compileSdk = 35
 
@@ -23,8 +26,8 @@ android {
         minSdk = 23
         targetSdk = 35
         // The TV app ships on its own schedule, separate from desktop releases.
-        versionCode = 2
-        versionName = "1.0.0"
+        versionCode = 3
+        versionName = "1.1.0"
     }
 
     signingConfigs {

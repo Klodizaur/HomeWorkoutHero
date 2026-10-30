@@ -119,7 +119,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const brand = (
     <NavLink to="/" className="rx-brand" onClick={closeSettings}>
       <img src="/logo.png" alt="" />
-      <span className="rx-brand-text">MYFITNESSPLAN</span>
+      <span className="rx-brand-text">HOMEWORKOUTHERO</span>
     </NavLink>
   );
 

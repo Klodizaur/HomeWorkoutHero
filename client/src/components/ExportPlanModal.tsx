@@ -53,8 +53,8 @@ export default function ExportPlanModal({ planId, planName, onClose }: Props) {
     if (!file || downloaded) return;
     const stamp = new Date().toISOString().split('T')[0];
     const name = planId
-      ? `${safeFilename(planName || file.plans[0]?.name || 'plan')}.mfp-plan.json`
-      : `myfitnessplan-backup-${stamp}.json`;
+      ? `${safeFilename(planName || file.plans[0]?.name || 'plan')}.hwh-plan.json`
+      : `homeworkouthero-backup-${stamp}.json`;
     const blob = new Blob([JSON.stringify(file, null, 2)], { type: 'application/json' });
     const href = URL.createObjectURL(blob);
     const link = document.createElement('a');

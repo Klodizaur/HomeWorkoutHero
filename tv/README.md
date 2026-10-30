@@ -1,4 +1,4 @@
-# MyFitnessPlan for Android TV
+# HomeWorkoutHero for Android TV
 
 A thin viewer: it asks for your computer's address once, remembers it, and shows
 the web interface that the desktop app serves when **Share on Local Network** is on.
@@ -53,6 +53,7 @@ before the first release build goes on (the keys differ).
 
 ## How the web interface knows it's on a TV
 
-The WebView's user agent ends in `MyFitnessPlanTV/<version>`. The web interface
+The WebView's user agent ends in `MyFitnessPlanTV/<version>` (the app's old name,
+kept so computers and TVs on different versions still recognise each other). The web interface
 only switches to TV mode when it sees that marker, so browsers on computers, phones
 and tablets are unaffected.

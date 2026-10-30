@@ -1,5 +1,5 @@
 /**
- * MyFitnessPlan - Desktop wrapper
+ * HomeWorkoutHero - Desktop wrapper
  * -------------------------------
  * Two run modes, chosen automatically:
  *
@@ -40,7 +40,14 @@ const fs = require('fs');
 const isPackaged = app.isPackaged;
 const SELFTEST = process.env.POC_SELFTEST === '1';
 // GitHub repo used by the lightweight "Check for Updates" feature.
-const GITHUB_REPO = 'Klodizaur/MyFitnessPlan';
+const GITHUB_REPO = 'Klodizaur/HomeWorkoutHero';
+
+// The app was called MyFitnessPlan up to 2.2.0, and Electron names the folder
+// holding the database, settings and log after the app. An install from before
+// the rename keeps using that folder, so it opens on the same data; a new
+// install gets a HomeWorkoutHero folder. Must run before anything reads the path.
+const LEGACY_USER_DATA = path.join(app.getPath('appData'), 'MyFitnessPlan');
+if (fs.existsSync(LEGACY_USER_DATA)) app.setPath('userData', LEGACY_USER_DATA);
 
 // Local-network sharing. Off by default: the server binds loopback only, exactly
 // as it always has, until the user turns this on from the tray.
@@ -254,7 +261,7 @@ async function startServer() {
     updateTray();
     if (!SELFTEST) {
       dialog.showErrorBox('Server did not start',
-        'The MyFitnessPlan server could not be started. See the log for details:\n' +
+        'The HomeWorkoutHero server could not be started. See the log for details:\n' +
         (logStream ? path.join(app.getPath('userData'), 'desktop.log') : '(console)'));
     }
   }
@@ -327,7 +334,7 @@ async function startPackagedServer() {
         NODE_ENV: 'production',
       }),
       stdio: ['ignore', 'pipe', 'pipe'],
-      serviceName: 'myfitnessplan-server',
+      serviceName: 'homeworkouthero-server',
     });
     serverChild = child;
     child.stdout?.on('data', (d) => log('[server]', d.toString().trim()));
@@ -429,13 +436,13 @@ async function importDatabase() {
       type: 'info',
       title: 'Import Database',
       message: 'Quit the separately-running server first.',
-      detail: 'This window is attached to a MyFitnessPlan server that was started outside the app, so it can\u2019t safely replace its database. Quit that server (or use the installed app) and try again.',
+      detail: 'This window is attached to a HomeWorkoutHero server that was started outside the app, so it can\u2019t safely replace its database. Quit that server (or use the installed app) and try again.',
     });
     return;
   }
 
   const pick = await dialog.showOpenDialog({
-    title: 'Import existing MyFitnessPlan database',
+    title: 'Import existing HomeWorkoutHero database',
     message: 'Select your existing workout-planner.db',
     properties: ['openFile'],
     filters: [
@@ -507,7 +514,7 @@ async function importDatabase() {
     type: 'info',
     title: 'Import complete',
     message: 'Your data was imported.',
-    detail: 'MyFitnessPlan restarted with your imported database.',
+    detail: 'HomeWorkoutHero restarted with your imported database.',
   });
 }
 
@@ -580,7 +587,7 @@ function isNewerVersion(latest, current) {
 
 function fetchLatestRelease() {
   const url = `https://api.github.com/repos/${GITHUB_REPO}/releases/latest`;
-  const headers = { 'User-Agent': 'MyFitnessPlan-Updater', Accept: 'application/vnd.github+json' };
+  const headers = { 'User-Agent': 'HomeWorkoutHero-Updater', Accept: 'application/vnd.github+json' };
   return new Promise((resolve, reject) => {
     const collect = (res) => {
       const status = res.statusCode || 0;
@@ -619,7 +626,7 @@ async function checkForUpdates() {
         defaultId: 1,
         cancelId: 0,
         title: 'Update available',
-        message: `MyFitnessPlan ${latest} is available.`,
+        message: `HomeWorkoutHero ${latest} is available.`,
         detail: `You have ${current}. Installing the new version over this one keeps all your data - your plans, library and history are stored separately and are never removed by updating.`,
       });
       if (response === 1) shell.openExternal(pageUrl);
@@ -697,7 +704,7 @@ function openApp() {
     height: 800,
     show: false,
     backgroundColor: '#0f172a',
-    title: 'MyFitnessPlan',
+    title: 'HomeWorkoutHero',
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
@@ -730,7 +737,7 @@ async function setShareOnNetwork(enabled, { fromSettings = false } = {}) {
       type: 'info',
       title: 'Restart the server to apply',
       message: enabled ? 'Sharing is on, but this server was started outside the app.' : 'Sharing is off for the next server start.',
-      detail: 'This window is attached to a MyFitnessPlan server that was already running, so the app can\u2019t change how it is listening. Quit that server and let the app start its own.',
+      detail: 'This window is attached to a HomeWorkoutHero server that was already running, so the app can\u2019t change how it is listening. Quit that server and let the app start its own.',
     });
     return;
   }
@@ -772,7 +779,7 @@ async function showShareAddress() {
       type: 'info',
       title: 'Sharing is off',
       message: 'Turn on "Share on Local Network" first.',
-      detail: 'Until then MyFitnessPlan listens only on this computer.',
+      detail: 'Until then HomeWorkoutHero listens only on this computer.',
     });
     return;
   }
@@ -793,7 +800,7 @@ async function showShareAddress() {
     buttons: ['Copy Address', 'Done'],
     defaultId: 0,
     cancelId: 1,
-    title: 'Open MyFitnessPlan on another device',
+    title: 'Open HomeWorkoutHero on another device',
     message: url,
     detail:
       'Type that into Safari or Chrome on your iPhone or iPad. The device has to be on the same Wi-Fi as this computer.\n\n' +
@@ -821,7 +828,7 @@ function updateTray() {
   const starting = serverState === 'starting';
   const status = starting ? 'Server: starting...' : running ? 'Server: running' : 'Server: stopped';
   const sharedAt = shareOnNetwork && running ? shareUrl() : null;
-  tray.setToolTip(`MyFitnessPlan - ${status}` + (sharedAt ? `\nShared at ${sharedAt}` : ''));
+  tray.setToolTip(`HomeWorkoutHero - ${status}` + (sharedAt ? `\nShared at ${sharedAt}` : ''));
   tray.setContextMenu(Menu.buildFromTemplate([
     { label: status, enabled: false },
     ...(sharedAt ? [{ label: sharedAt, enabled: false }] : []),

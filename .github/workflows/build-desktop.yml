@@ -18,11 +18,11 @@ jobs:
         include:
           - os: macos-latest
             build_script: dist:mac
-            artifact_name: myfitnessplan-macos-dmg
+            artifact_name: homeworkouthero-macos-dmg
             artifact_glob: desktop/release/*.dmg
           - os: windows-latest
             build_script: dist:win
-            artifact_name: myfitnessplan-windows-installer
+            artifact_name: homeworkouthero-windows-installer
             artifact_glob: desktop/release/*.exe
 
     steps:

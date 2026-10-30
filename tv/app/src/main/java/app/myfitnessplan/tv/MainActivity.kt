@@ -225,7 +225,7 @@ class MainActivity : Activity() {
     private fun showOffline() = showProblem(R.string.error_title, R.string.error_body)
 
     /**
-     * The computer answered, but with a MyFitnessPlan from before the TV app:
+     * The computer answered, but with a version from before the TV app:
      * its pages have no TV mode, so the remote couldn't get around them.
      */
     private fun showOutdated() = showProblem(R.string.outdated_title, R.string.outdated_body)
@@ -268,7 +268,7 @@ class MainActivity : Activity() {
         connectTo(base)
     }
 
-    /** Check that MyFitnessPlan answers at [base], then remember it and open it. */
+    /** Check that HomeWorkoutHero answers at [base], then remember it and open it. */
     private fun connectTo(base: String) {
         setConnecting(true)
         setupError.visibility = View.GONE
@@ -294,7 +294,7 @@ class MainActivity : Activity() {
 
     private enum class Probe { OK, NOT_APP, UNREACHABLE }
 
-    /** Ask the server for its version: only MyFitnessPlan answers that way. */
+    /** Ask the server for its version: only HomeWorkoutHero answers that way. */
     private fun probe(base: String): Probe {
         val conn = try {
             URL("$base/api/version").openConnection() as HttpURLConnection
@@ -460,6 +460,8 @@ class MainActivity : Activity() {
         private const val PROBE_TIMEOUT_MS = 4000
         /** 16 × 0.5 s: TV mode must answer within 8 seconds of the page loading. */
         private const val TV_MODE_CHECKS = 16
+        // The app's old name, kept on purpose: the web app looks for it to know
+        // it is on a TV, and computers not yet updated only know this one.
         const val USER_AGENT_MARKER = "MyFitnessPlanTV"
 
         private val YOUTUBE_ID = Regex("^[A-Za-z0-9_-]{6,20}$")

@@ -54,6 +54,34 @@
   --glass-shadow: 0 4px 30px rgba(0, 0, 0, 0.4);
 }
 
+[data-theme='pumpkin-patch'] {
+  --bg-color: #0f0b09;
+  --surface-color: #1a1310;
+  --surface-hover: #2d211a;
+  --text-primary: #fff1e3;
+  --text-secondary: #d8b79a;
+  --accent-color: #ff7a1a;
+  --accent-hover: #ff9442;
+  --accent-soft: rgba(255, 122, 26, 0.18);
+  /* Pumpkin is too bright for white text; a near-black reads on it. */
+  --accent-contrast: #1a0d04;
+  --progress-bg: rgba(255, 255, 255, 0.1);
+  --glass-bg: rgba(26, 19, 16, 0.75);
+  --glass-border: rgba(255, 122, 26, 0.2);
+  --glass-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+}
+
+/* Pumpkin seeds scattered faintly over the field, the same way Watermelon gets
+   its seeds: texture, not pattern, with the cards opaque above it. */
+body[data-theme='pumpkin-patch'] {
+  background-image:
+    radial-gradient(ellipse 4px 7px at 34px 46px, rgba(255, 196, 140, 0.07) 60%, transparent 61%),
+    radial-gradient(ellipse 4px 7px at 118px 112px, rgba(255, 196, 140, 0.07) 60%, transparent 61%),
+    radial-gradient(ellipse 4px 7px at 76px 162px, rgba(255, 122, 26, 0.08) 60%, transparent 61%);
+  background-size: 170px 200px;
+  background-attachment: fixed;
+}
+
 [data-theme='pastel-orange'] {
   --bg-color: #fff7ed;
   --surface-color: #ffffff;
@@ -228,6 +256,12 @@ html {
    themes above get away without this because their surfaces are dark. */
 [data-theme='watermelon'] .btn:not(.btn-secondary):not(.btn-ghost):not(.btn-danger-ghost) {
   color: #fff;
+}
+
+/* Pumpkin Patch fills buttons with its bright orange, so they take dark text —
+   but only the filled ones; the transparent variants sit on dark cards. */
+[data-theme='pumpkin-patch'] .btn:not(.btn-secondary):not(.btn-ghost):not(.btn-danger-ghost) {
+  color: #1a0d04;
 }
 
 .btn:hover {
