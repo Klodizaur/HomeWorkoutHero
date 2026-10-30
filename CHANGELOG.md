@@ -18,6 +18,7 @@ MyFitnessPlan is now **HomeWorkoutHero**. Same app, new name: updating keeps all
 - **Old files still work.** Plan files and profile backups made with MyFitnessPlan import and restore as before. Files made with HomeWorkoutHero need HomeWorkoutHero to open them, so if you share a plan, the other person should update too.
 - **The TV app keeps working.** The MyFitnessPlan TV app connects to HomeWorkoutHero as before, and the new TV app (1.1.0) installs over it as an update.
 - The website is now [homeworkouthero.com](https://homeworkouthero.com) and the guide [bigdeckit.gitbook.io/homeworkouthero](https://bigdeckit.gitbook.io/homeworkouthero), both linked from Settings › About.
+- A new, easier-to-read logo in the header: the mascot with HOME / WORKOUT / HERO stacked, as on the website.
 
 **YouTube workouts**
 
@@ -36,7 +37,6 @@ MyFitnessPlan is now **HomeWorkoutHero**. Same app, new name: updating keeps all
 ### Internal
 
 - New exports are marked `homeworkouthero.plan` and `homeworkouthero.profile-backup`; imports accept those and the old `myfitnessplan.*` names.
-- Names users never see keep the old name on purpose, because changing them would break existing installs: the desktop app ID, the TV app's package and user-agent marker, the profile cookie and the `MYFITNESSPLAN_*` environment variables.
 
 ## [2.2.0] - 2026-10-15
 
