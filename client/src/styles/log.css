@@ -30,6 +30,22 @@
   --lg-on2: #FFFFFF;
 }
 
+/* Pumpkin Patch: pumpkin oranges with a vine green, down to the dark field. */
+[data-theme='pumpkin-patch'] .lg {
+  --lg-s0: #FF7A1A;
+  --lg-s1: #7FA84A;
+  --lg-s2: #FFB466;
+  --lg-s3: #B8500F;
+  --lg-s4: #5C3B24;
+  --lg-s5: var(--t-band-odd);
+  --lg-on0: #1A0D04;
+  --lg-on1: #13200A;
+  --lg-on2: #1A0D04;
+  --lg-on3: #FFF1E3;
+  --lg-on4: #FFF1E3;
+}
+[data-theme='pumpkin-patch'] .lg-trophy { color: #1A0D04; }
+
 .lg-page { padding-top: 32px; padding-bottom: 48px; display: flex; flex-direction: column; gap: 28px; }
 .lg-lede { margin: 6px 0 0; font-size: 15px; color: var(--t-ink-muted); }
 .lg-mtabs.rx-seg { display: none; padding: 4px; border-radius: 14px; }

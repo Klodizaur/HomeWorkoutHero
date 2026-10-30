@@ -249,6 +249,11 @@ select.st-input { padding: 0 12px; cursor: pointer; }
 .st-bar-save { background: var(--t-accent-soft); color: var(--t-ink); font-weight: 700; }
 .st-toast { display: flex; align-items: center; gap: 8px; padding: 12px 18px; border-radius: 999px; font-size: 14px; font-weight: 600; white-space: nowrap; }
 .st-toast svg { color: var(--t-accent-soft); }
+/* Pumpkin Patch fills the bar with its bright orange, where the soft accent
+   (a darker orange) all but vanishes: go near-black instead. */
+[data-theme='pumpkin-patch'] .st-bar-discard { color: rgba(26, 13, 4, 0.72); }
+[data-theme='pumpkin-patch'] .st-bar-save { background: #1A0D04; color: #FFB466; }
+[data-theme='pumpkin-patch'] .st-toast svg { color: #1A0D04; }
 
 /* --- Mobile ------------------------------------------------------------------------------ */
 @media (max-width: 767px) {

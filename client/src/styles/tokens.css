@@ -3,8 +3,8 @@
  * =======================
  * The handoff lists one set of hex values — those are the **Pastel Orange**
  * theme, which is what its mockups were drawn in. Settings still offers all
- * seven themes, so the values live here as variables and each theme restates
- * them. Pastel Orange below matches the handoff exactly; the other six keep the
+ * eight themes, so the values live here as variables and each theme restates
+ * them. Pastel Orange below matches the handoff exactly; the other seven keep the
  * same *roles* (page behind surfaces, ink for text and primary buttons, one
  * accent, a warm tint for tracks and soft fills) in their own palette.
  *
@@ -108,6 +108,30 @@
   --t-accent: #10B981;
   --t-accent-soft: #0C8560;
   --t-overlay: rgba(2, 24, 18, 0.55);
+}
+
+/* Pumpkin Patch: a near-black field with a warm brown undertone and pumpkin
+   orange for everything that acts. Unlike the other dark themes the filled
+   buttons are the pumpkin, not the cream ink, with dark text on them. */
+[data-theme='pumpkin-patch'] {
+  --t-page: #0F0B09;
+  --t-surface: #1A1310;
+  --t-surface-warm: #221914;
+  --t-subtle: #221914;
+  --t-tint: #2D211A;
+  --t-band-odd: #221914;
+  --t-band-even: #1D1511;
+  --t-border: #3A2B21;
+  --t-border-dashed: #54402F;
+  --t-ink: #FFF1E3;
+  --t-ink-muted: #D8B79A;
+  --t-ink-faint: #A6876D;
+  --t-on-ink: #0F0B09;
+  --t-accent: #FF7A1A;
+  --t-accent-soft: #A84E12;
+  --t-overlay: rgba(6, 3, 2, 0.6);
+  --t-btn: #FF7A1A;
+  --t-on-btn: #1A0D04;
 }
 
 /* --- Light themes ----------------------------------------------------------- */
@@ -222,7 +246,8 @@
    "done" tint has to be dark rather than a near-white wash. */
 [data-theme='midnight'],
 [data-theme='sunset'],
-[data-theme='forest'] {
+[data-theme='forest'],
+[data-theme='pumpkin-patch'] {
   --t-success: #4ADE80;
   --t-success-bg: rgba(74, 222, 128, 0.12);
   --t-success-border: rgba(74, 222, 128, 0.35);
