@@ -489,6 +489,8 @@
   line-height: 1.4;
 }
 .toast > svg { flex-shrink: 0; margin-top: 1px; color: var(--t-accent-soft); }
+/* The soft accent is lost on Pumpkin Patch's orange fill. */
+[data-theme='pumpkin-patch'] .toast > svg { color: #1A0D04; }
 .toast--error > svg { color: #FF9C8F; }
 .toast span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 /* The close button is taller than a line of text. Its negative margin centres it
