@@ -258,6 +258,8 @@
   --t-shadow-popover: 0 14px 40px rgba(0, 0, 0, 0.5);
   --t-shadow-seg: 0 1px 3px rgba(0, 0, 0, 0.35);
   --t-shadow-lift: 0 8px 22px rgba(0, 0, 0, 0.35);
+  /* The logo's brown WORKOUT would vanish on a dark page. */
+  --t-logo-workout: var(--t-ink);
 }
 
 /* Filled buttons. On body so they resolve against the theme set on body: every theme

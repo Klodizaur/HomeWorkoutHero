@@ -117,9 +117,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const toggleLanguage = () => i18n.changeLanguage(isEnglish ? 'pl' : 'en');
 
   const brand = (
-    <NavLink to="/" className="rx-brand" onClick={closeSettings}>
+    <NavLink to="/" className="rx-brand" onClick={closeSettings} aria-label="HomeWorkoutHero">
       <img src="/logo.png" alt="" />
-      <span className="rx-brand-text">HOMEWORKOUTHERO</span>
+      <span className="rx-brand-text" aria-hidden="true">
+        <span>HOME</span>
+        <span className="rx-brand-workout">WORKOUT</span>
+        <span>HERO</span>
+      </span>
     </NavLink>
   );
 
