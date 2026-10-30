@@ -31,6 +31,11 @@ describe('validateExportFile', () => {
     expect(validateExportFile(valid)).toEqual({ ok: true, file: valid });
   });
 
+  it('accepts a file exported before the rename to HomeWorkoutHero', () => {
+    const old = { ...valid, format: 'myfitnessplan.plan' };
+    expect(validateExportFile(old)).toEqual({ ok: true, file: old });
+  });
+
   it.each([
     ['nothing', null, 'not_a_plan_file'],
     ['a string', 'plan', 'not_a_plan_file'],

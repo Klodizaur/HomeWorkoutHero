@@ -563,7 +563,7 @@ export default function Settings() {
           <div className="st-stack">
             <section className="st-card st-about-logo">
               <img src="/logo.png" alt="" />
-              <div className="st-about-name">MYFITNESSPLAN</div>
+              <div className="st-about-name">HOMEWORKOUTHERO</div>
               <div className="st-about-version">{t('about.version')} {appVersion || '—'}</div>
             </section>
 
@@ -574,11 +574,11 @@ export default function Settings() {
               </div>
               <div className="st-about-item">
                 <h3>{t('about.guide')}</h3>
-                <p>{t('about.guide_text')} <a href={GUIDE_URL} target="_blank" rel="noopener noreferrer">bigdeckit.gitbook.io/myfitnessplan</a></p>
+                <p>{t('about.guide_text')} <a href={GUIDE_URL} target="_blank" rel="noopener noreferrer">bigdeckit.gitbook.io/homeworkouthero</a></p>
               </div>
               <div className="st-about-item">
                 <h3>{t('about.website')}</h3>
-                <p><a href="https://myfitnessplan.bigdeckit.com/" target="_blank" rel="noopener noreferrer">myfitnessplan.bigdeckit.com</a></p>
+                <p><a href="https://homeworkouthero.com/" target="_blank" rel="noopener noreferrer">homeworkouthero.com</a></p>
               </div>
               <div className="st-about-item">
                 <h3>{t('about.created_by')}</h3>

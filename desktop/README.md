@@ -1,6 +1,6 @@
-# MyFitnessPlan - Desktop wrapper
+# HomeWorkoutHero - Desktop wrapper
 
-Packages the existing MyFitnessPlan web app into an installable desktop application
+Packages the existing HomeWorkoutHero web app into an installable desktop application
 (macOS `.dmg`, Windows `.exe`, Linux `AppImage`) with a menu-bar / system-tray icon.
 It does not reimplement the app - it runs the existing compiled server and serves the
 existing UI. Users need no Node.js, npm, or terminal.
@@ -69,9 +69,13 @@ avoid Gatekeeper / SmartScreen warnings.
 The packaged app stores its database, thumbnails, and plan backgrounds in the OS
 per-user data directory (writable, unlike the app bundle):
 
-- macOS: `~/Library/Application Support/MyFitnessPlan/data`
-- Windows: `%APPDATA%\MyFitnessPlan\data`
-- Linux: `~/.config/MyFitnessPlan/data`
+- macOS: `~/Library/Application Support/HomeWorkoutHero/data`
+- Windows: `%APPDATA%\HomeWorkoutHero\data`
+- Linux: `~/.config/HomeWorkoutHero/data`
+
+The app was called MyFitnessPlan up to 2.2.0. If a `MyFitnessPlan` folder already
+exists in that location, the app keeps using it instead, so an install from before
+the rename opens on the same data.
 
 On first launch the data folder is empty and the app creates a fresh database.
 
@@ -81,8 +85,8 @@ To keep the plans/library/history you built up while running `npm run dev`, copy
 existing data into the location above **before first launch**. Your dev data lives in
 `server/data/` (database + `thumbnails/` + `plan-backgrounds/`). For example on macOS:
 ```bash
-mkdir -p "$HOME/Library/Application Support/MyFitnessPlan/data"
-cp -R server/data/* "$HOME/Library/Application Support/MyFitnessPlan/data/"
+mkdir -p "$HOME/Library/Application Support/HomeWorkoutHero/data"
+cp -R server/data/* "$HOME/Library/Application Support/HomeWorkoutHero/data/"
 ```
 
 ## Changes made to the app (and why they're safe for `npm run dev`)

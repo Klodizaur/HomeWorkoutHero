@@ -1,7 +1,8 @@
 /**
  * TV mode: the web interface as shown by the Android TV app (tv/ at the repo root).
  *
- * The TV app's WebView adds `MyFitnessPlanTV/<version>` to its user agent, and
+ * The TV app's WebView adds `MyFitnessPlanTV/<version>` to its user agent (the
+ * app's old name, kept so TVs already set up are still recognised), and
  * that marker is the only thing that turns TV mode on. Every browser on a
  * computer, phone or tablet sees `isTv === false`, and the TV-only code and
  * styles (src/tv/) are never even downloaded there.

@@ -17,14 +17,17 @@ import { appVersion } from './version.js';
  * as a profile" brings it back under its old ID, so it lines up again.
  */
 
-export const PROFILE_BACKUP_FORMAT = 'myfitnessplan.profile-backup';
+export const PROFILE_BACKUP_FORMAT = 'homeworkouthero.profile-backup';
+/** Every format a backup may carry: backups made before the app was renamed from
+ *  MyFitnessPlan to HomeWorkoutHero say `myfitnessplan.profile-backup`, and still restore. */
+export const PROFILE_BACKUP_FORMATS: readonly string[] = [PROFILE_BACKUP_FORMAT, 'myfitnessplan.profile-backup'];
 export const PROFILE_BACKUP_VERSION = 1;
 
 /** Settings the backup schedule itself uses; kept out of the backed-up settings. */
 const SCHEDULE_KEYS = ['backup_every_days', 'backup_dir', 'backup_keep', 'backup_last_at'];
 
 export interface ProfileBackup {
-  format: typeof PROFILE_BACKUP_FORMAT;
+  format: string;
   version: number;
   profileId: string;
   profileName: string;
@@ -81,7 +84,7 @@ export type BackupCheck =
 
 /** Is this a profile backup this app can read? (Whose it is, is the caller's question.) */
 export function checkProfileBackup(data: any): BackupCheck {
-  if (!data || typeof data !== 'object' || data.format !== PROFILE_BACKUP_FORMAT) return { ok: false, error: 'not_a_backup' };
+  if (!data || typeof data !== 'object' || !PROFILE_BACKUP_FORMATS.includes(data.format)) return { ok: false, error: 'not_a_backup' };
   if (typeof data.version !== 'number' || data.version > PROFILE_BACKUP_VERSION) return { ok: false, error: 'newer_version' };
   if (typeof data.profileId !== 'string' || !data.profileId) return { ok: false, error: 'not_a_backup' };
   for (const key of ['settings', 'videos', 'plans', 'workouts', 'history', 'freezes', 'log', 'completions']) {
@@ -203,14 +206,16 @@ export function backupFolder(profileId: string): string {
   return chosen || path.join(BACKUP_DIR, 'profiles', profileId);
 }
 
-const FILE_PATTERN = (profileId: string) => new RegExp(`^myfitnessplan-profile-${profileId.replace(/[^A-Za-z0-9_-]/g, '')}-.*\\.json$`);
+// Backups made before the rename to HomeWorkoutHero carry the old prefix; they
+// still count, so they are listed and pruned along with the new ones.
+const FILE_PATTERN = (profileId: string) => new RegExp(`^(?:homeworkouthero|myfitnessplan)-profile-${profileId.replace(/[^A-Za-z0-9_-]/g, '')}-.*\\.json$`);
 
 /** Write a backup file now, prune the oldest beyond the keep count, and return its path. */
 export function writeProfileBackup(profileId: string): string {
   const dir = backupFolder(profileId);
   fs.mkdirSync(dir, { recursive: true });
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const file = path.join(dir, `myfitnessplan-profile-${profileId}-${stamp}.json`);
+  const file = path.join(dir, `homeworkouthero-profile-${profileId}-${stamp}.json`);
   // Written beside its final name and renamed into place, so a half-written
   // file never looks like a backup.
   fs.writeFileSync(`${file}.part`, JSON.stringify(buildProfileBackup(profileId)));

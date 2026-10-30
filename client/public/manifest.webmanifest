@@ -1,6 +1,6 @@
 {
-  "name": "MyFitnessPlan",
-  "short_name": "MyFitnessPlan",
+  "name": "HomeWorkoutHero",
+  "short_name": "HomeWorkoutHero",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0f172a",

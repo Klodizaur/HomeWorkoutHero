@@ -1,5 +1,8 @@
+# The old name stays in the app ID on purpose: it is how macOS and the Windows
+# installer recognise an existing install, so changing it would install
+# HomeWorkoutHero beside MyFitnessPlan instead of over it.
 appId: com.bigdeckit.myfitnessplan
-productName: MyFitnessPlan
+productName: HomeWorkoutHero
 copyright: Copyright Klaudia Krzos
 
 directories:

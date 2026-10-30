@@ -466,7 +466,7 @@ fastify.post('/api/backup/full', async (request, reply) => {
   const now = new Date();
   const two = (n: number) => String(n).padStart(2, '0');
   const stamp = `${now.getFullYear()}-${two(now.getMonth() + 1)}-${two(now.getDate())} ${two(now.getHours())}-${two(now.getMinutes())}`;
-  const target = path.join(dir!, `MyFitnessPlan backup ${stamp}`);
+  const target = path.join(dir!, `HomeWorkoutHero backup ${stamp}`);
   try {
     fs.mkdirSync(target, { recursive: true });
     db.prepare('VACUUM INTO ?').run(path.join(target, 'workout-planner.db'));
