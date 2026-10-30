@@ -595,7 +595,7 @@ export default function Settings() {
                 <p>{t('about.license_text')}</p>
                 <p>
                   {t('about.non_commercial')}
-                  <a href="https://github.com/Klodizaur/MyFitnessPlan" target="_blank" rel="noopener noreferrer">{t('about.contribute')}</a>
+                  <a href="https://github.com/Klodizaur/HomeWorkoutHero" target="_blank" rel="noopener noreferrer">{t('about.contribute')}</a>
                 </p>
               </div>
             </section>

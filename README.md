@@ -11,7 +11,7 @@ An open source, self-hosted local application for managing custom workout plans 
 HomeWorkoutHero is a personal workout planning tool designed to help you organize and track workout routines using your own video resources. Unlike rigid, predefined weekly schedules, HomeWorkoutHero lets you define custom workout patterns that fit your lifestyle—whether that's 3 days on, 1 day off, or any other pattern you prefer.
 
 - **Website**: [homeworkouthero.com](https://homeworkouthero.com) — I try to keep it up to date, and it's the easiest way to see what it does
-- **Download**: grab the latest macOS `.dmg` or Windows `.exe` from the [Releases page](https://github.com/Klodizaur/MyFitnessPlan/releases). No Node.js, npm, or terminal required.
+- **Download**: grab the latest macOS `.dmg` or Windows `.exe` from the [Releases page](https://github.com/Klodizaur/HomeWorkoutHero/releases). No Node.js, npm, or terminal required.
 
 ## Features
 

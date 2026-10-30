@@ -40,7 +40,7 @@ const fs = require('fs');
 const isPackaged = app.isPackaged;
 const SELFTEST = process.env.POC_SELFTEST === '1';
 // GitHub repo used by the lightweight "Check for Updates" feature.
-const GITHUB_REPO = 'Klodizaur/MyFitnessPlan';
+const GITHUB_REPO = 'Klodizaur/HomeWorkoutHero';
 
 // The app was called MyFitnessPlan up to 2.2.0, and Electron names the folder
 // holding the database, settings and log after the app. An install from before

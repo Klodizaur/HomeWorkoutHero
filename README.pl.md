@@ -11,7 +11,7 @@ Samodzielnie hostowana lokalna aplikacja do zarządzania własnymi planami treni
 HomeWorkoutHero to osobiste narzędzie do planowania treningów stworzone z myślą o organizowaniu i śledzeniu rutyn treningowych przy użyciu kolekcji własnych materiałów wideo. W przeciwieństwie do sztywnych, tygodniowych harmonogramów, HomeWorkoutHero pozwala definiować własne schematy treningowe dopasowane do Twojego stylu życia — niezależnie od tego, czy jest to 3 dni treningu i 1 dzień przerwy, czy dowolny inny układ.
 
 - **Strona internetowa**: [homeworkouthero.com](https://homeworkouthero.com) — staram się ją aktualizować na bieżąco, to najprostszy sposób, żeby zobaczyć, jak to działa
-- **Pobieranie**: pobierz najnowszy instalator macOS `.dmg` lub Windows `.exe` ze strony [Releases](https://github.com/Klodizaur/MyFitnessPlan/releases). Nie potrzebujesz Node.js, npm ani terminala.
+- **Pobieranie**: pobierz najnowszy instalator macOS `.dmg` lub Windows `.exe` ze strony [Releases](https://github.com/Klodizaur/HomeWorkoutHero/releases). Nie potrzebujesz Node.js, npm ani terminala.
 
 ## Funkcje
 

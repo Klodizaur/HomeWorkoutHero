@@ -900,10 +900,10 @@ built around your own video files.
   and **English / Polish** UI.
 - Runs entirely on your machine — no cloud account and no subscription.
 
-[1.4.1]: https://github.com/Klodizaur/MyFitnessPlan/releases/tag/v1.4.1
-[1.4.0]: https://github.com/Klodizaur/MyFitnessPlan/releases/tag/v1.4.0
-[1.3.0]: https://github.com/Klodizaur/MyFitnessPlan/releases/tag/v1.3.0
-[1.2.0]: https://github.com/Klodizaur/MyFitnessPlan/releases/tag/v1.2.0
-[1.1.3]: https://github.com/Klodizaur/MyFitnessPlan/releases/tag/v.1.1.3
-[1.1.2]: https://github.com/Klodizaur/MyFitnessPlan/releases/tag/v.1.1.2
-[1.0.0]: https://github.com/Klodizaur/MyFitnessPlan/releases/tag/v1.0.0
+[1.4.1]: https://github.com/Klodizaur/HomeWorkoutHero/releases/tag/v1.4.1
+[1.4.0]: https://github.com/Klodizaur/HomeWorkoutHero/releases/tag/v1.4.0
+[1.3.0]: https://github.com/Klodizaur/HomeWorkoutHero/releases/tag/v1.3.0
+[1.2.0]: https://github.com/Klodizaur/HomeWorkoutHero/releases/tag/v1.2.0
+[1.1.3]: https://github.com/Klodizaur/HomeWorkoutHero/releases/tag/v.1.1.3
+[1.1.2]: https://github.com/Klodizaur/HomeWorkoutHero/releases/tag/v.1.1.2
+[1.0.0]: https://github.com/Klodizaur/HomeWorkoutHero/releases/tag/v1.0.0
