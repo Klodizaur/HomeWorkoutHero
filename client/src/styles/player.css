@@ -171,7 +171,36 @@
   box-shadow: 0 12px 36px rgba(20, 8, 3, 0.35);
 }
 .pv-upnext .pv-upnext-x { position: absolute; top: -8px; right: -8px; width: 26px; height: 26px; padding: 0; background: #2A211C; color: #FFFFFF; box-shadow: 0 2px 8px rgba(20, 8, 3, 0.4); }
-.pv-upnext.is-embed { bottom: 20px; }
+/* YouTube, off the TV: nothing of ours may sit over its player, so the top bar
+   and up-next card become strips above and below the video. */
+.pv-top.is-strip { position: relative; z-index: 20; padding: 0; background: none; color: var(--t-ink); }
+.pv-top.is-strip .pv-meta { color: var(--t-ink-muted); }
+.pv-top.is-strip .pv-dot { background: var(--t-ink-muted); }
+.pv-top.is-strip .pv-round, .pv-top.is-strip .pv-pill:not(.is-on) { background: var(--t-tint); color: var(--t-ink); backdrop-filter: none; }
+/* The loop panel opens as a row of its own under the strip, pushing the video
+   down rather than covering it. */
+.pv-top.is-strip { flex-wrap: wrap; pointer-events: auto; }
+.pv-top.is-strip .pv-loop { display: contents; }
+.pv-loop-panel.is-inline {
+  position: static; flex-basis: 100%; width: auto; box-shadow: none;
+  display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr) auto; align-items: end; gap: 12px 24px;
+}
+.pv-loop-panel.is-inline .pv-loop-head { grid-column: 1 / -1; }
+.pv-loop-panel.is-inline .pv-loop-row { align-self: center; }
+.pv-loop-panel.is-inline .pv-loop-hint { grid-column: 1 / 4; }
+.pv-loop-panel.is-inline .pv-loop-go { grid-column: 4; grid-row: 2; padding: 0 22px; }
+.pv-loop-panel.is-inline .pv-loop-off { grid-column: 4; grid-row: 3; }
+.pv-upnext.is-strip {
+  position: static; inset: auto; z-index: auto; max-width: none;
+  padding: 10px 12px 10px 10px; border: 1px solid var(--t-border); border-radius: var(--t-r-card);
+  background: var(--t-surface); color: var(--t-ink); box-shadow: none;
+}
+.pv-upnext.is-strip .pv-upnext-eyebrow { color: var(--t-accent); }
+.pv-upnext.is-strip button { background: var(--t-btn); color: var(--t-on-btn); }
+.pv-upnext.is-strip .pv-upnext-x { position: static; order: 1; width: 32px; height: 32px; padding: 0; background: transparent; color: var(--t-ink-muted); box-shadow: none; }
+.pv-upnext.is-strip .pv-upnext-x:hover { background: var(--t-tint); transform: none; }
+/* Resting: the paused video is hidden rather than covered by the countdown. */
+.pv-theater.is-resting .player-youtube { visibility: hidden; }
 .pv-upnext img, .pv-upnext-blank { width: 96px; aspect-ratio: 16 / 10; object-fit: cover; border-radius: 11px; flex-shrink: 0; background: #F3DCC7; }
 .pv-upnext > div { flex: 1; min-width: 0; }
 .pv-upnext-eyebrow { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #C2410C; }
@@ -301,7 +330,9 @@
   .pv-ctrls .pv-desk { display: none; }
   .pv-rest-time { font-size: 54px; }
   .pv-upnext { left: 10px; right: 10px; bottom: 64px; max-width: none; }
-  .pv-upnext.is-embed { bottom: 10px; }
+  .pv-top.is-strip, .pv-upnext.is-strip { margin: 0 16px; }
+  .pv-loop-panel.is-inline { grid-template-columns: minmax(0, 1fr); }
+  .pv-loop-panel.is-inline > * { grid-column: 1 !important; grid-row: auto !important; }
   .pv-upnext img, .pv-upnext-blank { width: 72px; }
   .pv-mobile-title { display: block; margin: 4px 16px 0; font-size: 18px; font-weight: 700; line-height: 1.25; text-wrap: pretty; }
   .pv-today, .pv-info { margin-left: 0; margin-right: 0; }

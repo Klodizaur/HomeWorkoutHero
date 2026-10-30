@@ -324,6 +324,12 @@ export default function Player() {
       exitFullscreen();
       return;
     }
+    // YouTube (off the TV) fills the screen with its own player alone: with
+    // nothing of ours allowed over it, there is nothing else to bring along.
+    if (isExternal && !isTv) {
+      enterFullscreen(ytPlayerRef.current?.getIframe?.() ?? null, null);
+      return;
+    }
     // The theater, not the <video>: a cross-origin iframe can't be fullscreened
     // directly, and going fullscreen on the video element alone would hide the
     // loop counter and rest countdown that sit over it. The video is passed as
@@ -382,6 +388,12 @@ export default function Player() {
     return () => window.removeEventListener('keydown', onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isFullscreen, isExternal]);
+
+  // YouTube's own fullscreen hides the page, rest countdown included; step out of
+  // it when a rest starts so the countdown can be seen.
+  useEffect(() => {
+    if (restLeft !== null && isExternal && !isTv && fullscreenElement()) exitFullscreen();
+  }, [restLeft, isExternal]);
 
   useEffect(() => {
     const sync = () => setIsFullscreen(Boolean(fullscreenElement()));
@@ -524,9 +536,10 @@ export default function Player() {
     });
   }, [tvFull]);
 
-  // YouTube reports nothing by itself; poll it so our controls can draw it.
+  // YouTube reports nothing by itself; poll it so our controls can draw it (TV)
+  // and the up-next card knows when the video is nearly over.
   useEffect(() => {
-    if (!isTv || !isExternal) return;
+    if (!isExternal) return;
     const id = window.setInterval(() => {
       const yt = ytPlayerRef.current;
       if (!yt?.getCurrentTime) return;
@@ -750,11 +763,67 @@ export default function Player() {
     </span>
   );
 
+  // YouTube's rules don't allow anything of ours in front of its player, so off
+  // the TV (where our own controls drive it) the top bar and the up-next card
+  // sit above and below the video instead of over it.
+  const strip = isYouTube && !isTv;
+  const topBar = (
+    <div className={`pv-top${strip ? ' is-strip' : ''}`} onPointerEnter={() => { overControls.current = true; }} onPointerLeave={() => { overControls.current = false; }}>
+        <button type="button" className="pv-round" onClick={() => navigate(-1)} aria-label={t('player.close')} title={t('player.close')}>
+          <X size={18} />
+        </button>
+        <div className="pv-top-text">
+          <div className="pv-top-title">{title}</div>
+          {meta}
+        </div>
+        <LoopControl
+          loops={loops}
+          restSeconds={restSeconds}
+          nextRestSeconds={nextRestSeconds}
+          currentPass={Math.min(passesDone + 1, loops || 1)}
+          restLeft={restLeft}
+          inline={strip}
+          onApply={(nextLoops, nextRest, nextVideoRest) => {
+            // Starting a fresh set counts the pass already on screen as #1;
+            // only adjusting an existing one keeps the tally.
+            if (loops === 0) {
+              setPassesDone(0);
+              passesDoneRef.current = 0;
+            }
+            setLoops(nextLoops);
+            setRestSeconds(nextRest);
+            setNextRestSeconds(nextVideoRest);
+            // "Start loop" starts the video going, as the handoff has it.
+            if (!isExternal && videoRef.current?.paused) videoRef.current.play().catch(() => {});
+          }}
+          onClear={() => {
+            setLoops(0);
+            setPassesDone(0);
+            passesDoneRef.current = 0;
+            restActionRef.current = null;
+            setRestLeft(null);
+          }}
+        />
+      </div>
+  );
+  const upNext = showUpNext && nextStep && (
+    <div className={`pv-upnext${strip ? ' is-strip' : ''}`} data-player-ui>
+      {nextStep.thumbnail ? <img src={`/thumbnails/${nextStep.thumbnail}`} alt="" /> : <span className="pv-upnext-blank" />}
+      <div>
+        <div className="pv-upnext-eyebrow">{t('player.up_next', { n: partIndex + 2 })}</div>
+        <div className="pv-upnext-title">{nextStep.title}</div>
+      </div>
+      <button type="button" onClick={goToNext} aria-label={t('player.play_part', { n: partIndex + 2 })}><Play size={18} /></button>
+      <button type="button" className="pv-upnext-x" onClick={() => setUpNextHidden(true)} aria-label={t('player.dismiss')}><X size={14} /></button>
+    </div>
+  );
+
   return (
     <div className="pv-page">
       <div className="pv-stage">
+        {strip && topBar}
         <div
-          className={`pv-theater${isYouTube ? ' is-embed' : ''}${idle ? ' is-idle' : ''}`}
+          className={`pv-theater${idle ? ' is-idle' : ''}${restLeft !== null ? ' is-resting' : ''}`}
           ref={theaterRef}
           onDoubleClick={toggleFullscreen}
           onPointerDownCapture={() => { wasIdleOnPress.current = idleRef.current; }}
@@ -806,42 +875,7 @@ export default function Player() {
             />
           )}
 
-          <div className="pv-top" onPointerEnter={() => { overControls.current = true; }} onPointerLeave={() => { overControls.current = false; }}>
-            <button type="button" className="pv-round" onClick={() => navigate(-1)} aria-label={t('player.close')} title={t('player.close')}>
-              <X size={18} />
-            </button>
-            <div className="pv-top-text">
-              <div className="pv-top-title">{title}</div>
-              {meta}
-            </div>
-            <LoopControl
-              loops={loops}
-              restSeconds={restSeconds}
-              nextRestSeconds={nextRestSeconds}
-              currentPass={Math.min(passesDone + 1, loops || 1)}
-              restLeft={restLeft}
-              onApply={(nextLoops, nextRest, nextVideoRest) => {
-                // Starting a fresh set counts the pass already on screen as #1;
-                // only adjusting an existing one keeps the tally.
-                if (loops === 0) {
-                  setPassesDone(0);
-                  passesDoneRef.current = 0;
-                }
-                setLoops(nextLoops);
-                setRestSeconds(nextRest);
-                setNextRestSeconds(nextVideoRest);
-                // "Start loop" starts the video going, as the handoff has it.
-                if (!isExternal && videoRef.current?.paused) videoRef.current.play().catch(() => {});
-              }}
-              onClear={() => {
-                setLoops(0);
-                setPassesDone(0);
-                passesDoneRef.current = 0;
-                restActionRef.current = null;
-                setRestLeft(null);
-              }}
-            />
-          </div>
+          {!strip && topBar}
 
           {/* TV, out of full screen: a still instead of the (paused, unshowable) video. */}
           {isTv && !tvFull && (
@@ -878,17 +912,7 @@ export default function Player() {
             </div>
           )}
 
-          {showUpNext && nextStep && (
-            <div className={`pv-upnext${isYouTube ? ' is-embed' : ''}`} data-player-ui>
-              {nextStep.thumbnail ? <img src={`/thumbnails/${nextStep.thumbnail}`} alt="" /> : <span className="pv-upnext-blank" />}
-              <div>
-                <div className="pv-upnext-eyebrow">{t('player.up_next', { n: partIndex + 2 })}</div>
-                <div className="pv-upnext-title">{nextStep.title}</div>
-              </div>
-              <button type="button" onClick={goToNext} aria-label={t('player.play_part', { n: partIndex + 2 })}><Play size={18} /></button>
-              <button type="button" className="pv-upnext-x" onClick={() => setUpNextHidden(true)} aria-label={t('player.dismiss')}><X size={14} /></button>
-            </div>
-          )}
+          {!strip && upNext}
 
           {ownControls && (
             <div className="pv-bar" data-player-ui onPointerEnter={() => { overControls.current = true; }} onPointerLeave={() => { overControls.current = false; }}>
@@ -960,6 +984,8 @@ export default function Player() {
             </div>
           )}
         </div>
+
+        {strip && upNext}
 
         <h1 className="pv-mobile-title">{title}</h1>
 

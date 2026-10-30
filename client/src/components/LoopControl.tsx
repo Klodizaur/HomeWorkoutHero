@@ -12,7 +12,8 @@ import { isTv } from '../lib/tv';
  *
  * A labelled pill in the player's top bar that turns accent-coloured and counts
  * "Loop 1 / 3" while a loop runs. It opens a popover over the video on desktop
- * and a bottom sheet on a phone.
+ * and a bottom sheet on a phone — or, over a YouTube video, where nothing may
+ * cover the player, a panel in the page flow that pushes the video down.
  */
 
 export const REST_PRESETS = [0, 30, 60, 90, 120];
@@ -39,11 +40,14 @@ type Props = {
   currentPass: number;
   /** Seconds left in the rest period, or null when not resting. */
   restLeft: number | null;
+  /** Open in the page flow instead of over the video (YouTube). */
+  inline?: boolean;
 };
 
-export default function LoopControl({ loops, restSeconds, nextRestSeconds, onApply, onClear, currentPass, restLeft }: Props) {
+export default function LoopControl({ loops, restSeconds, nextRestSeconds, onApply, onClear, currentPass, restLeft, inline = false }: Props) {
   const { t } = useTranslation();
   const isMobile = useIsMobile();
+  const sheet = isMobile && !inline;
   const [open, setOpen] = useState(false);
   const [times, setTimes] = useState(loops || 3);
   const [rest, setRest] = useState(restSeconds);
@@ -119,8 +123,8 @@ export default function LoopControl({ loops, restSeconds, nextRestSeconds, onApp
   );
 
   const panel = (
-    <div className={`pv-loop-panel${isMobile ? ' is-sheet' : ''}`} role="dialog" aria-label={t('player.loop_heading')} data-player-ui>
-      {isMobile && <div className="pv-loop-grip" />}
+    <div className={`pv-loop-panel${sheet ? ' is-sheet' : ''}${inline ? ' is-inline' : ''}`} role="dialog" aria-label={t('player.loop_heading')} data-player-ui>
+      {sheet && <div className="pv-loop-grip" />}
       <div className="pv-loop-head">
         <h3>{t('player.loop_heading')}</h3>
         <button type="button" onClick={() => setOpen(false)} aria-label={t('profile.cancel')}><X size={16} /></button>
@@ -156,7 +160,7 @@ export default function LoopControl({ loops, restSeconds, nextRestSeconds, onApp
       </button>
       <span className="sr-only" role="status">{statusLabel}</span>
 
-      {open && (isMobile
+      {open && (sheet
         ? createPortal(
             <>
               <div className="pv-loop-scrim" onClick={() => setOpen(false)} />
