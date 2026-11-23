@@ -234,6 +234,8 @@
     "slot_main_caps": "MAIN PLAN",
     "slot_extra_caps": "EXTRA PLAN",
     "slot_empty": "No plan active. Start one from the list below.",
+    "hide_extra_slot": "Hide the extra plan card",
+    "add_extra_plan": "Add extra plan",
     "no_equipment_tag": "No equipment",
     "more_actions": "More actions",
     "view_plan": "View plan",

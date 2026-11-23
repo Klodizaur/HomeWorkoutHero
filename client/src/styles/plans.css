@@ -87,6 +87,15 @@
 
 /* --- Active slots ------------------------------------------------------------ */
 .pl-active-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+/* Only the main plan (the empty extra card was closed): it takes the whole row,
+   cover beside the details so a full-width cover doesn't grow too tall. */
+.pl-active-grid--single { grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 768px) {
+  .pl-active-grid--single .pl-active { flex-direction: row; }
+  .pl-active-grid--single .pl-active-media { flex: 0 0 50%; min-width: 0; }
+  .pl-active-grid--single .pl-active-cover { aspect-ratio: auto; height: 100%; min-height: 240px; border-radius: 21px 0 0 21px; }
+  .pl-active-grid--single .pl-active-body { padding: 20px 22px 22px; }
+}
 
 .pl-active {
   display: flex;
@@ -166,6 +175,7 @@
 .pl-soft-btn--danger { background: none; border-color: var(--t-border); color: var(--t-danger); }
 
 .pl-empty-slot {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 14px;
@@ -189,6 +199,40 @@
 }
 .pl-empty-kind { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; color: var(--t-ink-muted); }
 .pl-empty-note { margin-top: 2px; font-size: 14px; color: var(--t-ink-muted); }
+.pl-empty-dismiss {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  color: var(--t-ink-faint);
+  cursor: pointer;
+}
+.pl-empty-dismiss:hover { background: var(--t-tint); color: var(--t-ink); }
+.pl-empty-slot:has(.pl-empty-dismiss) { padding-right: 44px; }
+/* Brings the closed extra card back; quiet, under the main plan. */
+.pl-add-extra {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 10px;
+  padding: 4px 0;
+  border: none;
+  background: none;
+  color: var(--t-ink-muted);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.pl-add-extra:hover { color: var(--t-ink); }
 
 .pl-offline {
   display: inline-flex;

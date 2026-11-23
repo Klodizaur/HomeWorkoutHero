@@ -27,6 +27,9 @@ export default async function (fastify: FastifyInstance) {
     // Whether this profile closed the dashboard's guide banner. Kept per profile
     // so everyone in the house sees it once, on every device.
     settingsObj.guide_dismissed = getProfileSetting(profileId, 'guide_dismissed') === '1';
+    // Whether this profile closed the empty "Extra plan" card on the Plans page,
+    // so the main plan gets the whole row. An active extra plan always shows.
+    settingsObj.extra_slot_hidden = getProfileSetting(profileId, 'extra_slot_hidden') === '1';
     return reply.send(settingsObj);
   });
 
@@ -52,6 +55,9 @@ export default async function (fastify: FastifyInstance) {
     }
     if (body.guide_dismissed !== undefined) {
       setProfileSetting(profileId, 'guide_dismissed', body.guide_dismissed ? '1' : '0');
+    }
+    if (body.extra_slot_hidden !== undefined) {
+      setProfileSetting(profileId, 'extra_slot_hidden', body.extra_slot_hidden ? '1' : '0');
     }
     return reply.send({ success: true });
   });

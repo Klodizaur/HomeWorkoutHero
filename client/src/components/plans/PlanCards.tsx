@@ -1,6 +1,6 @@
 import { ReactNode, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Eye, Heart, HardDriveUpload, Image as ImageIcon, MoreHorizontal, Pencil, Play, Plus, Snowflake, Trash2, WifiOff } from 'lucide-react';
+import { Eye, Heart, HardDriveUpload, Image as ImageIcon, MoreHorizontal, Pencil, Play, Plus, Snowflake, Trash2, WifiOff, X } from 'lucide-react';
 import { isTv } from '../../lib/tv';
 import { CompletedBadge } from '../library/LibraryCards';
 
@@ -229,10 +229,21 @@ export function ActivePlanCard(props: ActivePlanCardProps) {
   );
 }
 
-export function EmptySlot({ slot }: { slot: 'main' | 'extra' }) {
+export function EmptySlot({ slot, onDismiss }: { slot: 'main' | 'extra'; onDismiss?: () => void }) {
   const { t } = useTranslation();
   return (
     <div className="pl-empty-slot">
+      {onDismiss && (
+        <button
+          type="button"
+          className="pl-empty-dismiss"
+          aria-label={t('plans.hide_extra_slot')}
+          title={t('plans.hide_extra_slot')}
+          onClick={onDismiss}
+        >
+          <X size={16} />
+        </button>
+      )}
       <div className="pl-empty-icon"><Plus size={22} /></div>
       <div>
         <div className="pl-empty-kind">

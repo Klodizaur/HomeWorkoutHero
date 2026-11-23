@@ -299,6 +299,8 @@
     "slot_main_caps": "PLAN GŁÓWNY",
     "slot_extra_caps": "PLAN DODATKOWY",
     "slot_empty": "Brak aktywnego planu. Wybierz jeden z listy poniżej.",
+    "hide_extra_slot": "Ukryj kartę planu dodatkowego",
+    "add_extra_plan": "Dodaj plan dodatkowy",
     "no_equipment_tag": "Bez sprzętu",
     "more_actions": "Więcej akcji",
     "view_plan": "Zobacz plan",

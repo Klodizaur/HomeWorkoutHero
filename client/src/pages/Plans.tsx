@@ -189,6 +189,10 @@ export default function Plans() {
   const [bgPickerVideos, setBgPickerVideos] = useState<Video[]>([]);
   const [bgPickerLoading, setBgPickerLoading] = useState(false);
 
+  // Whether this profile closed the empty "Extra plan" card, so the main plan
+  // gets the whole row. null until settings load: the empty card waits for
+  // them, so it never flashes up for someone who closed it.
+  const [extraSlotHidden, setExtraSlotHidden] = useState<boolean | null>(null);
   // Today's freeze reason per active plan (planId -> reason), so the card can
   // show Freeze vs. Unfreeze without computing each plan's full schedule.
   const [freezeStatus, setFreezeStatus] = useState<Record<string, FreezeReason>>({});
@@ -236,6 +240,7 @@ export default function Plans() {
     fetch('/api/settings')
       .then(res => res.json())
       .then(data => {
+        setExtraSlotHidden(data?.extra_slot_hidden === true);
         if (Array.isArray(data?.workout_pattern) && data.workout_pattern.some((d: number) => d)) {
           setGlobalPattern(data.workout_pattern);
           // Seeds the builder too. This runs once at mount, before any builder
@@ -243,8 +248,17 @@ export default function Plans() {
           setBuilderPattern(data.workout_pattern);
         }
       })
-      .catch(() => { /* keep the built-in default */ });
+      .catch(() => { setExtraSlotHidden(false); /* keep the built-in default */ });
   }, []);
+
+  const saveExtraSlotHidden = (hidden: boolean) => {
+    setExtraSlotHidden(hidden);
+    fetch('/api/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ extra_slot_hidden: hidden }),
+    }).catch(() => {});
+  };
 
   const handleFreeze = async (planId: string, reason: FreezeReason, days: number) => {
     setFreezeSaving(true);
@@ -729,6 +743,17 @@ export default function Plans() {
   // plans — the main plan first, then the extra one when a second is active.
   const activePlans = plans.filter(p => slotOf(p) !== null);
   const otherPlans = plans.filter(p => slotOf(p) === null);
+  const hasExtraPlan = activePlans.some(p => slotOf(p) === 'extra');
+  // The slots to draw. An empty one is left out on the TV (it has no "start one
+  // from the list below": no list there), and the empty extra one also when this
+  // profile closed it. While settings load it stays out too, so it can't flash.
+  const activeSlots = (['main', 'extra'] as Slot[]).filter(slot => {
+    if (activePlans.some(p => slotOf(p) === slot)) return true;
+    if (isTv) return false;
+    return slot === 'main' || extraSlotHidden === false;
+  });
+  // Closing the empty extra card is undone here, next to the main plan.
+  const showAddExtra = !isTv && extraSlotHidden === true && !hasExtraPlan;
 
   // Remaining plans are grouped under category headings: known presets first (in
   // their canonical order), then custom labels A→Z, then uncategorized plans last.
@@ -888,11 +913,18 @@ export default function Plans() {
       )}
 
       <h2 className="pl-section-label">{t('plans.active_caps')}</h2>
-      <div className="pl-active-grid">
-        {(['main', 'extra'] as Slot[]).map(slot => {
+      <div className={`pl-active-grid${!isTv && activeSlots.length === 1 ? ' pl-active-grid--single' : ''}`}>
+        {activeSlots.map(slot => {
           const plan = activePlans.find(p => slotOf(p) === slot);
-          // The TV has no "start one from the list below": no list there.
-          if (!plan) return isTv ? null : <EmptySlot key={slot} slot={slot} />;
+          if (!plan) {
+            return (
+              <EmptySlot
+                key={slot}
+                slot={slot}
+                onDismiss={slot === 'extra' ? () => saveExtraSlotHidden(true) : undefined}
+              />
+            );
+          }
           const frozen = Boolean(freezeStatus[plan.id]);
           return (
             <ActivePlanCard
@@ -919,6 +951,12 @@ export default function Plans() {
           );
         })}
       </div>
+      {showAddExtra && (
+        <button type="button" className="pl-add-extra" onClick={() => saveExtraSlotHidden(false)}>
+          <Plus size={14} />
+          {t('plans.add_extra_plan')}
+        </button>
+      )}
 
       {/* On the TV only the active plans: picking, building and activating
           happen on the computer (the line under the title says so). */}
