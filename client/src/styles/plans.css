@@ -87,6 +87,15 @@
 
 /* --- Active slots ------------------------------------------------------------ */
 .pl-active-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+/* Only the main plan (the empty extra card was closed): it takes the whole row,
+   cover beside the details so a full-width cover doesn't grow too tall. */
+.pl-active-grid--single { grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 768px) {
+  .pl-active-grid--single .pl-active { flex-direction: row; }
+  .pl-active-grid--single .pl-active-media { flex: 0 0 50%; min-width: 0; }
+  .pl-active-grid--single .pl-active-cover { aspect-ratio: auto; height: 100%; min-height: 240px; border-radius: 21px 0 0 21px; }
+  .pl-active-grid--single .pl-active-body { padding: 20px 22px 22px; }
+}
 
 .pl-active {
   display: flex;
@@ -166,6 +175,7 @@
 .pl-soft-btn--danger { background: none; border-color: var(--t-border); color: var(--t-danger); }
 
 .pl-empty-slot {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 14px;
@@ -189,6 +199,40 @@
 }
 .pl-empty-kind { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; color: var(--t-ink-muted); }
 .pl-empty-note { margin-top: 2px; font-size: 14px; color: var(--t-ink-muted); }
+.pl-empty-dismiss {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  color: var(--t-ink-faint);
+  cursor: pointer;
+}
+.pl-empty-dismiss:hover { background: var(--t-tint); color: var(--t-ink); }
+.pl-empty-slot:has(.pl-empty-dismiss) { padding-right: 44px; }
+/* Brings the closed extra card back; quiet, under the main plan. */
+.pl-add-extra {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 10px;
+  padding: 4px 0;
+  border: none;
+  background: none;
+  color: var(--t-ink-muted);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.pl-add-extra:hover { color: var(--t-ink); }
 
 .pl-offline {
   display: inline-flex;
@@ -566,3 +610,71 @@
 .pl-create-item:active { background: var(--t-accent-soft); }
 .pl-create-item:focus-visible { outline: 2px solid var(--t-accent); outline-offset: -2px; }
 .pl-import .pl-menu-pop button:focus-visible { outline-offset: -2px; }
+
+/* --- Folder view --------------------------------------------------------------
+   Search with the List / Folders switch beside it; categories as folder cards,
+   with two cards peeking out behind each cover. */
+.pl-find-row { display: flex; gap: 10px; align-items: center; min-width: 0; }
+.pl-find-row .pl-search { flex: 1; min-width: 0; }
+.pl-view { flex-shrink: 0; }
+.pl-view button { display: flex; align-items: center; justify-content: center; }
+
+.pl-folders { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 28px 20px; margin-top: 28px; }
+.pl-folder { display: flex; flex-direction: column; min-width: 0; padding: 0; border: none; background: none; color: var(--t-ink); font-family: inherit; text-align: left; cursor: pointer; }
+.pl-folder-cover { position: relative; display: block; margin-top: 11px; }
+.pl-folder-img { position: relative; z-index: 1; display: block; aspect-ratio: 16 / 10; border-radius: 16px; }
+.pl-folder-img.pl-cover--empty { display: flex; align-items: center; justify-content: center; }
+/* The stack: two flat cards behind, a little narrower each. */
+.pl-folder-cover::before,
+.pl-folder-cover::after { content: ''; position: absolute; left: 8%; right: 8%; top: -6px; height: 20px; border-radius: 12px 12px 0 0; background: var(--t-border); }
+.pl-folder-cover::before { left: 16%; right: 16%; top: -11px; opacity: 0.6; }
+.pl-folder-icon { color: var(--t-accent); }
+.pl-folder-heart { pointer-events: none; }
+.pl-folder-name { display: block; margin-top: 10px; font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pl-folder-count { display: block; margin-top: 2px; font-size: 13px; color: var(--t-ink-muted); }
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .pl-folder-cover { transition: transform 0.2s ease; }
+  .pl-folder:hover .pl-folder-cover { transform: translateY(-3px); }
+  .pl-folder .pl-folder-name { transition: color 0.2s ease; }
+  .pl-folder:hover .pl-folder-name { color: var(--t-accent); }
+}
+.pl-folder:focus-visible { outline: 2px solid var(--t-accent); outline-offset: 4px; border-radius: 16px; }
+
+.pl-group-head--folder { cursor: default; }
+.pl-folder-back { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; margin-left: -6px; padding: 0; border: none; border-radius: 10px; background: var(--t-tint); color: var(--t-ink); cursor: pointer; }
+.pl-folder-back:hover { background: var(--t-border); }
+.pl-folder-back:focus-visible { outline: 2px solid var(--t-accent); outline-offset: 2px; }
+
+@media (max-width: 767px) {
+  .pl-folders { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px 12px; margin-top: 20px; }
+}
+
+/* List layout on desktop: one plan per row, like on a phone, with a wider
+   cover and the Start button sized to its label rather than the row. */
+@media (min-width: 768px) {
+  .pl-grid--rows { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .pl-grid--rows .pl-card { flex-direction: row; gap: 16px; padding: 10px; }
+  .pl-grid--rows .pl-card-cover { width: 176px; aspect-ratio: 16 / 10; border-radius: 12px; }
+  .pl-grid--rows .pl-card-body { padding: 4px 4px 2px 0; }
+  .pl-grid--rows .pl-start-btn { align-self: flex-start; padding: 0 18px; height: 38px; }
+}
+
+/* --- Quick plan picker (empty slot / "Add extra plan") ------------------------ */
+.pl-empty-slot.is-clickable { cursor: pointer; transition: border-color 0.15s, background-color 0.15s; }
+.pl-empty-slot.is-clickable:hover { border-color: var(--t-accent); background: var(--t-tint); }
+.pl-empty-slot.is-clickable:focus-visible { outline: 2px solid var(--t-accent); outline-offset: 2px; }
+.pl-quick { gap: 16px; }
+.pl-quick-section h3 { margin: 0 0 8px; font-size: 13px; font-weight: 700; color: var(--t-ink-muted); }
+.pl-quick-list { display: flex; flex-direction: column; gap: 6px; }
+.pl-quick-item { display: flex; align-items: center; gap: 12px; padding: 8px; border: 1px solid var(--t-border); border-radius: 14px; background: var(--t-surface); color: var(--t-ink); font-family: inherit; text-align: left; cursor: pointer; transition: border-color 0.15s, background-color 0.15s; }
+.pl-quick-item:hover { border-color: var(--t-accent); background: var(--t-tint); }
+.pl-quick-item:focus-visible { outline: 2px solid var(--t-accent); outline-offset: 2px; }
+.pl-quick-thumb { width: 64px; height: 40px; flex-shrink: 0; border-radius: 9px; overflow: hidden; background: var(--t-tint); }
+.pl-quick-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.pl-quick-thumb img.is-blurred { filter: blur(4px); transform: scale(1.1); }
+.pl-quick-thumb.is-empty img { object-fit: contain; padding: 6px; box-sizing: border-box; }
+.pl-quick-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.pl-quick-name { font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pl-quick-meta { font-size: 13px; color: var(--t-ink-muted); }
+.pl-quick-heart { flex-shrink: 0; color: var(--t-accent); fill: currentColor; margin-right: 4px; }
+.pl-quick-none { margin: 0; font-size: 14px; color: var(--t-ink-muted); }

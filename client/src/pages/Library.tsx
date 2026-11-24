@@ -6,7 +6,7 @@ import FiltersSheet from '../components/library/FiltersSheet';
 import {
   AddFromYouTubeCard, AddFromYouTubeRow, FolderCard, FolderItem, FolderRow, VideoGridCard, VideoListRow,
 } from '../components/library/LibraryCards';
-import { EMPTY_LENGTH, isLengthActive, LengthRange, matchesLength, matchesQuery, matchesSource, matchesTags, useFilterMatchMode, SourceFilter } from '../lib/filters';
+import { EMPTY_LENGTH, isLengthActive, LengthRange, matchesLength, matchesLevel, matchesQuery, matchesSource, matchesTags, useFilterMatchMode, SourceFilter } from '../lib/filters';
 import { useLengthLabel } from '../components/library/LengthFilter';
 import { useMetaLabels } from '../lib/labels';
 import { albumKeyForVideo, FAVORITES_ALBUM_KEY, isExternalAlbumKey, isExternalVideo, toAlbumRouteParam } from '../lib/paths';
@@ -17,9 +17,15 @@ import VideoDetailsModal from '../components/VideoDetailsModal';
 import YouTubeImportModal from '../components/YouTubeImportModal';
 import { inLibrary, Video } from '../types/video';
 import '../styles/library.css';
-import { compareAdded, naturalCompare, sortVideos } from '../lib/videoSort';
+import { compareAdded, compareAmount, naturalCompare, sortVideos } from '../lib/videoSort';
 import { timeAgo } from '../lib/dates';
 import { useRootFolderName } from '../lib/rootFolder';
+import { LIBRARY_SCANNED_EVENT, startRescan, useScanStatus } from '../lib/scanStatus';
+import { notify } from '../lib/notify';
+import { isTv } from '../lib/tv';
+import { SETTINGS_SAVED_EVENT } from '../lib/settingsEvents';
+import { FolderPlus, RefreshCw } from 'lucide-react';
+import { setPinned, usePinnedFolders } from '../lib/pins';
 
 const PAGE = 24;
 const RECENT_COUNT = 6;
@@ -48,6 +54,7 @@ export default function Library() {
   const [trainingType, setTrainingType] = useState<string[]>([]);
   const [bodyParts, setBodyParts] = useState<string[]>([]);
   const [intensity, setIntensity] = useState<string[]>([]);
+  const [level, setLevel] = useState<string[]>([]);
   const [length, setLength] = useState<LengthRange>(EMPTY_LENGTH);
   const lengthLabel = useLengthLabel();
   const [matchMode, setMatchMode] = useFilterMatchMode();
@@ -63,22 +70,55 @@ export default function Library() {
   // user picks one.
   const effectiveView: LibraryView = view || (isMobile ? 'list' : 'grid');
 
+  const [loaded, setLoaded] = useState(false);
   const loadVideos = useCallback(() => {
     fetch('/api/library/videos')
       .then(r => r.json())
       // Only your library — not videos that are only here for one of your plans.
-      .then((data: Video[]) => setVideos((data || []).filter(inLibrary)))
+      .then((data: Video[]) => { setVideos((data || []).filter(inLibrary)); setLoaded(true); })
       .catch(err => console.error('Failed to load library:', err));
   }, []);
 
   useEffect(() => { loadVideos(); }, [loadVideos]);
+
+  // The folder videos are scanned from: '' when none is set yet, null while
+  // loading. Decides between "add your folder" and the Rescan button.
+  const [folder, setFolder] = useState<string | null>(null);
+  useEffect(() => {
+    const load = () => fetch('/api/settings')
+      .then(r => (r.ok ? r.json() : {}))
+      .then((data: { video_directory?: string }) => setFolder(data.video_directory || ''))
+      .catch(() => setFolder(''));
+    load();
+    window.addEventListener(SETTINGS_SAVED_EVENT, load);
+    return () => window.removeEventListener(SETTINGS_SAVED_EVENT, load);
+  }, []);
+
+  // New videos show up as soon as a scan finishes, wherever it was started.
+  useEffect(() => {
+    window.addEventListener(LIBRARY_SCANNED_EVENT, loadVideos);
+    return () => window.removeEventListener(LIBRARY_SCANNED_EVENT, loadVideos);
+  }, [loadVideos]);
+
+  const scan = useScanStatus();
+  const scanning = !!scan?.active;
+  const rescan = async () => {
+    const problem = await startRescan();
+    if (problem === 'busy') notify(t('library.rescan_busy'), 'ok');
+    else if (problem === 'missing_directory') notify(t('library.rescan_missing', { folder }));
+    else if (problem === 'no_directory') setFolder('');
+    else if (problem) notify(t('library.rescan_failed'));
+  };
+  const openFolderSettings = () => navigate('/settings?tab=workouts&focus=folder');
+  const noFolder = folder === '';
+  const emptyFolder = !!folder && loaded && videos.every(v => isExternalVideo(v));
 
   const importAvailable = useImportAvailable();
   // Descriptions are fetched in the background after an import, so refresh
   // while that runs rather than leaving the user to reload the page.
   useDescriptionProgress(justImported, loadVideos);
 
-  const filterCount = equipment.length + trainingType.length + bodyParts.length + intensity.length + (isLengthActive(length) ? 1 : 0);
+  const filterCount = equipment.length + trainingType.length + bodyParts.length + intensity.length + level.length + (isLengthActive(length) ? 1 : 0);
   const trimmedQuery = query.trim();
   const isFiltering = filterCount > 0 || trimmedQuery.length > 0;
 
@@ -89,9 +129,10 @@ export default function Library() {
     if (!matchesTags(video.training_type, trainingType, 'any')) return false;
     if (!matchesTags(video.body_parts, bodyParts, 'any')) return false;
     if (intensity.length > 0 && !intensity.includes(video.intensity || '')) return false;
+    if (!matchesLevel(video.level, level)) return false;
     if (!matchesLength(video.duration_seconds, length)) return false;
     return true;
-  }), [videos, source, equipment, trainingType, bodyParts, intensity, length, matchMode]);
+  }), [videos, source, equipment, trainingType, bodyParts, intensity, level, length, matchMode]);
 
   const albums = useMemo<FolderItem[]>(() => {
     const map = new Map<string, Video[]>();
@@ -103,7 +144,13 @@ export default function Library() {
     }
 
     const addedRange = new Map<string, { newest?: string; oldest?: string }>();
+    // A folder's length is all its videos together; its "times done" likewise.
+    const totals = new Map<string, { seconds: number; done: number }>();
     for (const [key, vids] of map) {
+      totals.set(key, {
+        seconds: vids.reduce((sum, v) => sum + (v.duration_seconds || 0), 0),
+        done: vids.reduce((sum, v) => sum + (v.completed_count || 0), 0),
+      });
       const dates = vids.map(v => v.added_at).filter((d): d is string => Boolean(d)).sort();
       addedRange.set(key, { oldest: dates[0], newest: dates[dates.length - 1] });
     }
@@ -123,6 +170,10 @@ export default function Library() {
 
     if (sort === 'size') result.sort((a, b) => b.count - a.count);
     else if (sort === 'small') result.sort((a, b) => a.count - b.count);
+    else if (sort === 'long' || sort === 'short') {
+      result.sort((a, b) => compareAmount(totals.get(a.key)?.seconds, totals.get(b.key)?.seconds, sort === 'long') || naturalCompare(a.title, b.title));
+    } else if (sort === 'done') result.sort((a, b) => (totals.get(b.key)?.done || 0) - (totals.get(a.key)?.done || 0) || naturalCompare(a.title, b.title));
+    else if (sort === 'undone') result.sort((a, b) => (totals.get(a.key)?.done || 0) - (totals.get(b.key)?.done || 0) || naturalCompare(a.title, b.title));
     // A folder is as new as its newest video, and as old as its oldest one.
     else if (sort === 'newest') result.sort((a, b) => compareAdded(addedRange.get(a.key)?.newest, addedRange.get(b.key)?.newest, true));
     else if (sort === 'oldest') result.sort((a, b) => compareAdded(addedRange.get(a.key)?.oldest, addedRange.get(b.key)?.oldest, false));
@@ -157,6 +208,24 @@ export default function Library() {
     () => (trimmedQuery ? albums.filter(a => matchesQuery([a.title], trimmedQuery)) : albums),
     [albums, trimmedQuery]
   );
+
+  // Pinned folders lead the Folders section, newest pin first, a little bigger
+  // in grid view; the rest follow as usual. Favourites leads the rest.
+  const pinnedKeys = usePinnedFolders();
+  const pinnedFolders = useMemo(
+    () => pinnedKeys
+      .map(key => visibleFolders.find(f => f.key === key))
+      .filter((f): f is FolderItem => !!f && !f.isFavorites),
+    [pinnedKeys, visibleFolders]
+  );
+  const otherFolders = useMemo(
+    () => visibleFolders.filter(f => !pinnedFolders.includes(f)),
+    [visibleFolders, pinnedFolders]
+  );
+  const pinProps = (folder: FolderItem) => folder.isFavorites ? {} : {
+    pinned: pinnedKeys.includes(folder.key),
+    onPin: () => setPinned(folder.key, !pinnedKeys.includes(folder.key)),
+  };
 
   /** Videos are listed once something is searched or filtered for, or on request. */
   const listVideos = isFiltering || showAll;
@@ -200,6 +269,10 @@ export default function Library() {
       key: `int:${v}`, label: labels.intensity(v), category: 'intensity' as const,
       remove: () => setIntensity(prev => prev.filter(x => x !== v)),
     })),
+    ...level.map(v => ({
+      key: `lvl:${v}`, label: labels.level(v), category: 'intensity' as const,
+      remove: () => setLevel(prev => prev.filter(x => x !== v)),
+    })),
     ...(isLengthActive(length) ? [{
       key: 'length', label: lengthLabel(length), category: 'length' as const,
       remove: () => setLength(EMPTY_LENGTH),
@@ -207,7 +280,7 @@ export default function Library() {
   ];
 
   const clearAll = () => {
-    setEquipment([]); setTrainingType([]); setBodyParts([]); setIntensity([]); setLength(EMPTY_LENGTH); setQuery('');
+    setEquipment([]); setTrainingType([]); setBodyParts([]); setIntensity([]); setLevel([]); setLength(EMPTY_LENGTH); setQuery('');
   };
 
   const openAlbum = (key: string) =>
@@ -237,7 +310,20 @@ export default function Library() {
           <div className="lib-head-meta">
             {t('library.folders_and_videos', { folders: totalAlbums, videos: videos.length })}
           </div>
+          {folder && !isTv && <div className="lib-head-folder" title={folder}>{t('library.from_folder', { folder })}</div>}
         </div>
+        {folder && !isTv && (
+          <button
+            type="button"
+            className="rx-btn lib-rescan"
+            onClick={rescan}
+            disabled={scanning}
+            title={t('library.rescan_hint')}
+          >
+            <RefreshCw size={16} className={scanning ? 'lib-spin' : undefined} />
+            <span>{scanning ? t('library.scanning') : t('library.rescan')}</span>
+          </button>
+        )}
       </header>
 
       <LibraryToolbar
@@ -259,6 +345,37 @@ export default function Library() {
       />
 
       <div className="rx-wrap lib-body">
+        {/* How videos get here: the most asked question, answered where
+            people look for them. */}
+        {noFolder && (
+          <section className="lib-setup">
+            <span className="lib-setup-icon"><FolderPlus size={22} /></span>
+            <div className="lib-setup-text">
+              <strong>{t('library.setup_title')}</strong>
+              <p>{isTv ? t('library.setup_tv') : t('library.setup_text')}</p>
+            </div>
+            {!isTv && (
+              <button type="button" className="rx-btn rx-btn--primary" onClick={openFolderSettings}>
+                {t('library.setup_cta')}
+              </button>
+            )}
+          </section>
+        )}
+        {emptyFolder && !isTv && (
+          <section className="lib-setup">
+            <span className="lib-setup-icon"><FolderPlus size={22} /></span>
+            <div className="lib-setup-text">
+              <strong>{t('library.empty_folder_title')}</strong>
+              <p>{t('library.empty_folder_text', { folder })}</p>
+            </div>
+            <div className="lib-setup-btns">
+              <button type="button" className="rx-btn" onClick={openFolderSettings}>{t('library.change_folder')}</button>
+              <button type="button" className="rx-btn rx-btn--primary" onClick={rescan} disabled={scanning}>
+                {scanning ? t('library.scanning') : t('library.rescan')}
+              </button>
+            </div>
+          </section>
+        )}
         {!isFiltering && recentVideos.length > 0 && (
           <section>
             <div className="lib-section-head">
@@ -302,20 +419,29 @@ export default function Library() {
             </div>
 
             {effectiveView === 'grid' ? (
+              <>
+              {pinnedFolders.length > 0 && (
+                <div className="lib-grid lib-grid--pinned">
+                  {pinnedFolders.map(folder => (
+                    <FolderCard key={folder.key} folder={folder} onOpen={() => openAlbum(folder.key)} {...pinProps(folder)} />
+                  ))}
+                </div>
+              )}
               <div className="lib-grid">
                 {/* First on a phone so it's reachable without scrolling the
                     whole library; last on desktop so it doesn't displace one. */}
                 {showAddYouTube && isMobile && addYouTube}
-                {visibleFolders.map(folder => (
-                  <FolderCard key={folder.key} folder={folder} onOpen={() => openAlbum(folder.key)} />
+                {otherFolders.map(folder => (
+                  <FolderCard key={folder.key} folder={folder} onOpen={() => openAlbum(folder.key)} {...pinProps(folder)} />
                 ))}
                 {showAddYouTube && !isMobile && addYouTube}
               </div>
+              </>
             ) : (
               <div className="lib-rows">
                 {showAddYouTube && <AddFromYouTubeRow onOpen={() => setIsImportOpen(true)} />}
-                {visibleFolders.map(folder => (
-                  <FolderRow key={folder.key} folder={folder} onOpen={() => openAlbum(folder.key)} />
+                {[...pinnedFolders, ...otherFolders].map(folder => (
+                  <FolderRow key={folder.key} folder={folder} onOpen={() => openAlbum(folder.key)} {...pinProps(folder)} />
                 ))}
               </div>
             )}
@@ -386,6 +512,8 @@ export default function Library() {
         onBodyParts={setBodyParts}
         intensity={intensity}
         onIntensity={setIntensity}
+        level={level}
+        onLevel={setLevel}
         length={length}
         onLength={setLength}
         matchMode={matchMode}

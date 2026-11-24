@@ -6,6 +6,7 @@ import db, { FIRST_PROFILE_ID } from '../src/db.js';
 import libraryRoutes from '../src/routes/library.js';
 import planRoutes from '../src/routes/plan.js';
 import scheduleRoutes from '../src/routes/schedule.js';
+import profileRoutes from '../src/routes/profile.js';
 import profilesRoutes from '../src/routes/profiles.js';
 import settingsRoutes from '../src/routes/settings.js';
 
@@ -26,6 +27,7 @@ export async function buildTestApp(): Promise<FastifyInstance> {
   app.register(libraryRoutes, { prefix: '/api/library' });
   app.register(planRoutes, { prefix: '/api/plan' });
   app.register(scheduleRoutes, { prefix: '/api/schedule' });
+  app.register(profileRoutes, { prefix: '/api/profile' });
   app.register(profilesRoutes, { prefix: '/api/profiles' });
   app.register(settingsRoutes, { prefix: '/api/settings' });
   await app.ready();

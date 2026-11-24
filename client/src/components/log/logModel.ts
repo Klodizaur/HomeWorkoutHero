@@ -1,5 +1,6 @@
 import { Video } from '../../types/video';
 import { VideoTag } from '../../lib/videoTags';
+import { asMood, Mood } from '../mood/Mood';
 
 export type LogEntry = {
   id: string;
@@ -13,6 +14,11 @@ export type LogEntry = {
   completedAt: string;
   isManual: boolean;
   notes: string;
+  /** How the user felt before / after, 1 (awful) to 5 (great); null when not given. */
+  moodBefore: number | null;
+  moodAfter: number | null;
+  /** Why it felt rough, when the user said after a low mood (a MOOD_REASONS key). */
+  moodReason?: string | null;
   /** Times through the video, when it was looped in the player; null otherwise. */
   loopCount: number | null;
   durationSeconds: number | null;
@@ -52,6 +58,9 @@ export interface LogGroup {
   isManual: boolean;
   entries: LogEntry[];
   notes: string;
+  /** Mirrored across the workout's rows, like the note. */
+  moodBefore: Mood | null;
+  moodAfter: Mood | null;
   /** Names for entries with no linked video (manually logged workouts). */
   nameLines: string[];
 }
@@ -94,7 +103,7 @@ export function groupEntries(dayEntries: LogEntry[]): LogGroup[] {
   const groups = new Map<string, LogGroup>();
   for (const e of dayEntries) {
     const key = e.workoutId || e.workoutName || e.id;
-    const g = groups.get(key) || { key, planName: e.planName, isManual: false, entries: [], notes: '', nameLines: [] };
+    const g = groups.get(key) || { key, planName: e.planName, isManual: false, entries: [], notes: '', moodBefore: null, moodAfter: null, nameLines: [] };
     g.isManual = g.isManual || e.isManual;
     g.entries.push(e);
     groups.set(key, g);
@@ -108,7 +117,20 @@ export function groupEntries(dayEntries: LogEntry[]): LogGroup[] {
     nameLines: g.entries.every(e => e.videoFilename) ? [] : workoutNameLines(g.entries[0].workoutName),
     // The note is mirrored across the workout's rows; take the first one set.
     notes: g.entries.find(e => e.notes)?.notes || '',
+    moodBefore: asMood(g.entries.find(e => e.moodBefore)?.moodBefore),
+    moodAfter: asMood(g.entries.find(e => e.moodAfter)?.moodAfter),
   }));
+}
+
+/** The mood to show for a day: the latest workout that has one (entries come newest-first). */
+export function dayMood(dayEntries: LogEntry[]): { before: Mood | null; after: Mood | null } | null {
+  const e = dayEntries.find(x => x.moodBefore || x.moodAfter);
+  if (!e) return null;
+  const sameWorkout = dayEntries.filter(x => (x.workoutId || x.id) === (e.workoutId || e.id));
+  return {
+    before: asMood(sameWorkout.find(x => x.moodBefore)?.moodBefore),
+    after: asMood(sameWorkout.find(x => x.moodAfter)?.moodAfter),
+  };
 }
 
 /** An entry's tags, in the fixed order every card uses. */

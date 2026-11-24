@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import FreezePlanModal from '../components/FreezePlanModal';
 import { FreezeReason } from '../lib/freeze';
 import { useToday } from '../lib/dates';
+import { togglePlaceholderDone } from '../components/calendar/NoteDay';
 import TapeView from '../components/calendar/TapeView';
 import WeekView from '../components/calendar/WeekView';
 import GridView from '../components/calendar/GridView';
@@ -28,6 +29,11 @@ export default function Calendar() {
   const [detailsDate, setDetailsDate] = useState<string | null>(null);
   const today = useToday();
   const navigate = useNavigate();
+
+  // A note day has nothing to play; it's marked done from the day itself.
+  const toggleNote = async (workoutId: string) => {
+    if (await togglePlaceholderDone(workoutId)) await loadSchedule();
+  };
 
   const loadSchedule = () =>
     fetch('/api/schedule')
@@ -159,6 +165,7 @@ export default function Calendar() {
               onFreeze={(planId, date) => setFreezeTarget({ planId, date, single: false })}
               onUnfreeze={handleUnfreeze}
               busyKey={busyKey}
+              onToggleNote={toggleNote}
             />
           )}
         </div>
@@ -192,6 +199,7 @@ export default function Calendar() {
           onFreeze={(planId, date) => { setDetailsDate(null); setFreezeTarget({ planId, date, single: false }); }}
           onUnfreeze={handleUnfreeze}
           busyKey={busyKey}
+          onToggleNote={toggleNote}
         />
       )}
 
@@ -201,11 +209,14 @@ export default function Calendar() {
           saving={freezeSaving}
           singleDay={freezeTarget.single}
           startDate={freezeTarget.date}
-          // Rhythm dates don't move when days are frozen, so the first workout day
-          // on or after the end of the freeze is when things pick up again.
+          // Frozen days pause the rhythm, so the plan picks up after the freeze
+          // exactly as it would have from the first frozen day: the same gap
+          // to its next workout day, moved to the end of the freeze.
           resumeFor={days => {
-            const end = addDays(freezeTarget.date, days);
-            return freezePlan.schedule.find(d => d.date >= end && d.isWorkoutDay)?.date ?? null;
+            const next = freezePlan.schedule.find(d => d.date >= freezeTarget.date && d.isWorkoutDay)?.date;
+            if (!next) return null;
+            const gap = Math.round((Date.parse(`${next}T00:00:00Z`) - Date.parse(`${freezeTarget.date}T00:00:00Z`)) / 86400000);
+            return addDays(freezeTarget.date, days + gap);
           }}
           onConfirm={handleFreeze}
           onClose={() => setFreezeTarget(null)}

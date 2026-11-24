@@ -21,7 +21,20 @@ export interface BuilderDay {
    * pairs each day with its own progress. Absent on days added in the builder.
    */
   workoutId?: string;
+  /**
+   * A placeholder day's text ("Swimming", "Add videos later"): a day kept in
+   * the plan with no videos yet. Only used while the day has no videos.
+   */
+  placeholder?: string;
+  /** How long the placeholder day takes, in minutes, when given. */
+  placeholderMinutes?: number;
+  /** 'activity' for a workout of its own (swimming); absent for a placeholder waiting for videos. */
+  placeholderKind?: 'activity';
 }
+
+/** Whether a day has something to save: videos, or a placeholder's text. */
+export const dayIsFilled = (day: BuilderDay): boolean =>
+  day.videoIds.length > 0 || Boolean(day.placeholder?.trim());
 
 export interface BuilderWeek {
   name: string;
@@ -111,7 +124,7 @@ export const slotsForWeek = (rhythms: number[][], index: number): number =>
  */
 export function relayoutWeeks(weeks: BuilderWeek[], slots: number | ((week: number) => number)): BuilderWeek[] {
   const sizeOf = typeof slots === 'number' ? () => slots : slots;
-  const filled = weeks.flatMap(week => week.days).filter(day => day.videoIds.length > 0);
+  const filled = weeks.flatMap(week => week.days).filter(dayIsFilled);
   const out: BuilderWeek[] = [];
   let taken = 0;
   do {

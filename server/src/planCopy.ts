@@ -12,8 +12,8 @@ export function copyPlanTo(planId: string, profileId: string, name?: string): { 
   if (!plan) return null;
 
   const workouts = db.prepare(
-    'SELECT name, sequence_order, video_ids FROM workouts WHERE plan_id = ? ORDER BY sequence_order ASC'
-  ).all(planId) as { name: string; sequence_order: number; video_ids: string | null }[];
+    'SELECT name, sequence_order, video_ids, placeholder, placeholder_minutes, placeholder_kind FROM workouts WHERE plan_id = ? ORDER BY sequence_order ASC'
+  ).all(planId) as { name: string; sequence_order: number; video_ids: string | null; placeholder: number; placeholder_minutes: number | null; placeholder_kind: string | null }[];
 
   const copyId = nanoid();
   db.transaction(() => {
@@ -32,8 +32,8 @@ export function copyPlanTo(planId: string, profileId: string, name?: string): { 
       plan.background_blur ?? 0,
       plan.workout_pattern ?? null
     );
-    const insert = db.prepare('INSERT INTO workouts (id, plan_id, name, sequence_order, video_ids) VALUES (?, ?, ?, ?, ?)');
-    for (const w of workouts) insert.run(nanoid(), copyId, w.name, w.sequence_order, w.video_ids);
+    const insert = db.prepare('INSERT INTO workouts (id, plan_id, name, sequence_order, video_ids, placeholder, placeholder_minutes, placeholder_kind) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
+    for (const w of workouts) insert.run(nanoid(), copyId, w.name, w.sequence_order, w.video_ids, w.placeholder ? 1 : 0, w.placeholder_minutes ?? null, w.placeholder_kind ?? null);
   })();
 
   // The copy's videos join its new owner's library, so the plan isn't empty

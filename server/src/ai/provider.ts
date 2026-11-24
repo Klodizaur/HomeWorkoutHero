@@ -98,11 +98,14 @@ export async function listModels(): Promise<ModelChoice[]> {
 export interface ModelRequest {
   system: string;
   user: string;
+  /** Use this model instead of the configured one — for cheap background work. */
+  model?: string;
 }
 
-export async function callModel({ system, user }: ModelRequest): Promise<string> {
-  const settings = getAiSettings();
-  if (!isAiConfigured(settings)) {
+export async function callModel({ system, user, model }: ModelRequest): Promise<string> {
+  const configured = getAiSettings();
+  const settings = model ? { ...configured, model } : configured;
+  if (!isAiConfigured(configured)) {
     throw new AiError('AI is not configured.', 'not_configured');
   }
 

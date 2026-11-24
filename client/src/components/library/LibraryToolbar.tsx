@@ -131,6 +131,12 @@ export default function LibraryToolbar({
                 { value: 'za', label: t('library.sort_za') },
                 { value: 'size', label: sizeLabel || '' },
                 { value: 'small', label: smallLabel || '' },
+                // The two above are about folder size at the index, so length
+                // (a folder's: all its videos together) gets its own pair.
+                { value: 'long', label: t('library.sort_longest') },
+                { value: 'short', label: t('library.sort_shortest') },
+                { value: 'done', label: t('library.sort_most_done') },
+                { value: 'undone', label: t('library.sort_least_done') },
                 { value: 'newest', label: t('library.sort_newest') },
                 { value: 'oldest', label: t('library.sort_oldest') },
               ]}

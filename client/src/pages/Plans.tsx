@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Check, ChevronDown, ChevronRight, HardDriveUpload, ListPlus, Plus, Search, Sparkles } from 'lucide-react';
+import { notify } from '../lib/notify';
+import { Check, ChevronDown, ChevronLeft, ChevronRight, Folder, HardDriveUpload, LayoutGrid, List, ListPlus, Plus, Search, Sparkles } from 'lucide-react';
+import { useIsMobile } from '../lib/useIsMobile';
 import { useMetaLabels } from '../lib/labels';
 import { isTv } from '../lib/tv';
 import { ImportResult, useImportAvailable } from '../lib/externalImport';
@@ -16,7 +18,8 @@ import FreezePlanModal from '../components/FreezePlanModal';
 import { FreezeReason } from '../lib/freeze';
 import { localDateString, useToday } from '../lib/dates';
 import { confirmDialog } from '../lib/confirm';
-import { ActivePlanCard, EmptySlot, PlanCard, PlanCardData } from '../components/plans/PlanCards';
+import { ActivePlanCard, EmptySlot, PlanCard, PlanCardData, PlanFolderCard } from '../components/plans/PlanCards';
+import QuickPlanPicker from '../components/plans/QuickPlanPicker';
 import StartPlanSheet, { Slot } from '../components/plans/StartPlanSheet';
 import PlanPreviewModal from '../components/plans/PlanPreviewModal';
 import CoverPickerModal from '../components/plans/CoverPickerModal';
@@ -67,6 +70,7 @@ interface PlanDay {
   id: string;
   name: string;
   sequence_order: number;
+  placeholder?: boolean;
   videos: PlanVideo[];
 }
 
@@ -105,6 +109,29 @@ function readCollapsedCategories(): Set<string> {
   }
 }
 
+// List (categories as headings) or Folders (categories as cards), per device.
+type PlansView = 'list' | 'folders';
+const PLANS_VIEW_KEY = 'plansView';
+function readPlansView(): PlansView {
+  try {
+    return localStorage.getItem(PLANS_VIEW_KEY) === 'folders' ? 'folders' : 'list';
+  } catch {
+    return 'list';
+  }
+}
+
+// How plan cards are laid out: cards in a grid, or one per row (a phone always
+// shows rows). Kept apart from the view, so a folder opens in the same layout.
+type PlansLayout = 'grid' | 'rows';
+const PLANS_LAYOUT_KEY = 'plansLayout';
+function readPlansLayout(): PlansLayout {
+  try {
+    return localStorage.getItem(PLANS_LAYOUT_KEY) === 'rows' ? 'rows' : 'grid';
+  } catch {
+    return 'grid';
+  }
+}
+
 function categoryStorageKey(key: string): string {
   return key || UNCATEGORIZED_KEY;
 }
@@ -130,10 +157,26 @@ export default function Plans() {
   const today = useToday();
   const uploadInputRef = useRef<HTMLInputElement | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  // The quick picker behind an empty slot and "Add extra plan".
+  const [quickPickOpen, setQuickPickOpen] = useState(false);
   // The plan whose "start plan" sheet is open.
   const [startPlanId, setStartPlanId] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState(ALL);
+  const [view, setViewState] = useState<PlansView>(readPlansView);
+  const [layout, setLayoutState] = useState<PlansLayout>(readPlansLayout);
+  const isMobile = useIsMobile();
+  const setLayout = (next: PlansLayout) => {
+    setLayoutState(next);
+    try { localStorage.setItem(PLANS_LAYOUT_KEY, next); } catch { /* memory only */ }
+  };
+  const setView = (next: PlansView) => {
+    if (next === view) return;
+    setViewState(next);
+    // A folder picked in one view shouldn't leave the other looking filtered.
+    setCategoryFilter(ALL);
+    try { localStorage.setItem(PLANS_VIEW_KEY, next); } catch { /* memory only */ }
+  };
   // Finished workouts per active plan, for the progress bar on its card.
   const [doneByPlan, setDoneByPlan] = useState<Record<string, number>>({});
   const [activationDate] = useState(localDateString());
@@ -189,6 +232,10 @@ export default function Plans() {
   const [bgPickerVideos, setBgPickerVideos] = useState<Video[]>([]);
   const [bgPickerLoading, setBgPickerLoading] = useState(false);
 
+  // Whether this profile closed the empty "Extra plan" card, so the main plan
+  // gets the whole row. null until settings load: the empty card waits for
+  // them, so it never flashes up for someone who closed it.
+  const [extraSlotHidden, setExtraSlotHidden] = useState<boolean | null>(null);
   // Today's freeze reason per active plan (planId -> reason), so the card can
   // show Freeze vs. Unfreeze without computing each plan's full schedule.
   const [freezeStatus, setFreezeStatus] = useState<Record<string, FreezeReason>>({});
@@ -236,6 +283,7 @@ export default function Plans() {
     fetch('/api/settings')
       .then(res => res.json())
       .then(data => {
+        setExtraSlotHidden(data?.extra_slot_hidden === true);
         if (Array.isArray(data?.workout_pattern) && data.workout_pattern.some((d: number) => d)) {
           setGlobalPattern(data.workout_pattern);
           // Seeds the builder too. This runs once at mount, before any builder
@@ -243,8 +291,17 @@ export default function Plans() {
           setBuilderPattern(data.workout_pattern);
         }
       })
-      .catch(() => { /* keep the built-in default */ });
+      .catch(() => { setExtraSlotHidden(false); /* keep the built-in default */ });
   }, []);
+
+  const saveExtraSlotHidden = (hidden: boolean) => {
+    setExtraSlotHidden(hidden);
+    fetch('/api/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ extra_slot_hidden: hidden }),
+    }).catch(() => {});
+  };
 
   const handleFreeze = async (planId: string, reason: FreezeReason, days: number) => {
     setFreezeSaving(true);
@@ -303,6 +360,8 @@ export default function Plans() {
     const data = await res.json();
     if (data.success) {
       setStatus(t(slot === 'extra' ? 'plans.activated_extra_status' : 'plans.activated_status'));
+      // A plan you'd finished starts over: say so, and that the first time is kept.
+      if (data.restarted) notify(t('plans.restarted_notice'), 'ok');
       fetchPlans();
     } else {
       setStatus(t('plans.failed_activate'));
@@ -411,6 +470,11 @@ export default function Plans() {
         // saving updates it in place and its progress survives the edit.
         weeks[weekIndex].days[dayIndex].videoIds = videoIds;
         weeks[weekIndex].days[dayIndex].workoutId = workout.id;
+        if (workout.placeholder) {
+          weeks[weekIndex].days[dayIndex].placeholder = workout.name;
+          if (workout.placeholder_minutes) weeks[weekIndex].days[dayIndex].placeholderMinutes = workout.placeholder_minutes;
+          if (workout.placeholder_kind === 'activity') weeks[weekIndex].days[dayIndex].placeholderKind = 'activity';
+        }
       });
 
       // Use existing weeks or create a default one
@@ -469,8 +533,9 @@ export default function Plans() {
     setIsBuilderOpen(true);
 
     // The user reviews and edits before saving, so anything the draft couldn't
-    // honour is said out loud here rather than discovered later.
-    const notes = [result.summary];
+    // honour is said out loud here rather than discovered later. The summary
+    // isn't repeated: it is already in the description field.
+    const notes: string[] = [];
     if (result.workoutDayCount > 0 && result.workoutDayCount < result.requestedWorkoutDays) {
       notes.push(t('ai.short_notice', {
         count: result.workoutDayCount,
@@ -546,13 +611,20 @@ export default function Plans() {
           ? videoTitles.join('\n')
           : '';
 
+        // No videos but a note: a placeholder day, its note as its name.
+        const note = day.placeholder?.trim() || '';
+        if (day.videoIds.length === 0 && note) {
+          return { ...day, name: note, videoTitles: [], placeholder: true, minutes: day.placeholderMinutes ?? null, kind: day.placeholderKind ?? null };
+        }
+
         return {
           ...day,
           name: dayName,
-          videoTitles
+          videoTitles,
+          placeholder: false,
         };
       })
-    ).filter(day => day.videoIds.length > 0);
+    ).filter(day => day.videoIds.length > 0 || day.placeholder);
 
     if (!selectedDays.length) {
       setBuilderStatus(t('plans.builder_need_videos'));
@@ -584,28 +656,20 @@ export default function Plans() {
     if (data.error) {
       setBuilderStatus(`Error: ${data.error}`);
     } else {
-      setBuilderStatus('');
+      resetBuilder();
       setIsBuilderOpen(false);
-      setEditingPlanId(null);
-      setPlanDescription('');
-      setBuilderPattern(globalPattern);
-      setBuilderPatternCustom(false);
-      setBuilderPatternByWeek(false);
-      setBuilderCategory('');
-      setBuilderCustomCategory('');
-      setBuilderWeeks(createInitialBuilderWeeks());
-      setBuilderCurrentWeek(0);
-      setBuilderCurrentDay(0);
       setStatus(t('plans.builder_saved', { count: selectedDays.length }));
       fetchPlans();
     }
   };
 
 
-  const closeBuilder = () => {
-    setIsBuilderOpen(false);
+  /** Everything the builder holds, back to a blank new plan. */
+  const resetBuilder = () => {
     setEditingPlanId(null);
+    setPlanName('');
     setPlanDescription('');
+    setBuilderStartDate(localDateString());
     setBuilderPattern(globalPattern);
     setBuilderPatternCustom(false);
     setBuilderPatternByWeek(false);
@@ -615,7 +679,18 @@ export default function Plans() {
     setBuilderCurrentWeek(0);
     setBuilderCurrentDay(0);
     setBuilderStatus('');
+  };
+
+  const closeBuilder = () => {
+    setIsBuilderOpen(false);
+    resetBuilder();
     setIsImportOpen(false);
+  };
+
+  // "Build your own plan" always starts blank, whatever was edited before.
+  const openNewPlan = () => {
+    resetBuilder();
+    setIsBuilderOpen(true);
   };
 
 
@@ -729,6 +804,17 @@ export default function Plans() {
   // plans — the main plan first, then the extra one when a second is active.
   const activePlans = plans.filter(p => slotOf(p) !== null);
   const otherPlans = plans.filter(p => slotOf(p) === null);
+  const hasExtraPlan = activePlans.some(p => slotOf(p) === 'extra');
+  // The slots to draw. An empty one is left out on the TV (it has no "start one
+  // from the list below": no list there), and the empty extra one also when this
+  // profile closed it. While settings load it stays out too, so it can't flash.
+  const activeSlots = (['main', 'extra'] as Slot[]).filter(slot => {
+    if (activePlans.some(p => slotOf(p) === slot)) return true;
+    if (isTv) return false;
+    return slot === 'main' || extraSlotHidden === false;
+  });
+  // Closing the empty extra card is undone here, next to the main plan.
+  const showAddExtra = !isTv && extraSlotHidden === true && !hasExtraPlan;
 
   // Remaining plans are grouped under category headings: known presets first (in
   // their canonical order), then custom labels A→Z, then uncategorized plans last.
@@ -824,6 +910,36 @@ export default function Plans() {
   }));
 
   const needle = query.trim().toLowerCase();
+  // Folder view: the categories as cards; opening one is the same as picking
+  // its chip, so search and chips work as they do in the list.
+  const folderMode = view === 'folders' && showCategoryHeadings;
+  const showFolderGrid = folderMode && categoryFilter === ALL && !needle;
+  // The switch says how the plans on screen are shown: Folders only while the
+  // folder cards are up; inside an open folder (or a search) it's Grid or
+  // List, and changing that keeps you in the folder.
+  const showingPlans = !showFolderGrid;
+  // Inside a folder (or a search from the folders) the switch is only how the
+  // plans are laid out; the back arrow is the way out to the folders.
+  const insideFolders = folderMode && showingPlans;
+  const showViewSwitch = isMobile ? showCategoryHeadings && !insideFolders : true;
+  const gridOn = showingPlans && !isMobile && layout === 'grid';
+  const listOn = showingPlans && (isMobile || layout === 'rows');
+  const pickLayout = (next: PlansLayout) => {
+    if (!isMobile) setLayout(next);
+    if (view === 'folders' && showFolderGrid) setView('list');
+  };
+  const showFolders = () => {
+    if (view !== 'folders') { setView('folders'); return; }
+    setCategoryFilter(ALL);
+    setQuery('');
+  };
+  const folderCover = (group: { plans: Plan[] }) => {
+    const withCover = group.plans.find(p => p.background_image && !p.background_blur)
+      ?? group.plans.find(p => p.background_image);
+    return withCover
+      ? { cover: resolveBackgroundUrl(withCover.background_image), blur: Boolean(withCover.background_blur) }
+      : { cover: null, blur: false };
+  };
   const visibleGroups = planGroups
     .filter(g => categoryFilter === ALL || (g.key || UNCATEGORIZED_KEY) === categoryFilter)
     .map(g => ({ ...g, plans: g.plans.filter(p => !needle || p.name.toLowerCase().includes(needle)) }))
@@ -847,7 +963,7 @@ export default function Plans() {
         {/* The TV app plays plans; building, importing and backing them up need
             a keyboard, a mouse or files, so they stay on the computer. */}
         {!isTv && <div className="pl-actions">
-          <button type="button" className="rx-btn rx-btn--primary" onClick={() => setIsBuilderOpen(true)}>
+          <button type="button" className="rx-btn rx-btn--primary" onClick={openNewPlan}>
             <ListPlus size={17} />
             {t('plans.build_btn')}
           </button>
@@ -888,11 +1004,19 @@ export default function Plans() {
       )}
 
       <h2 className="pl-section-label">{t('plans.active_caps')}</h2>
-      <div className="pl-active-grid">
-        {(['main', 'extra'] as Slot[]).map(slot => {
+      <div className={`pl-active-grid${!isTv && activeSlots.length === 1 ? ' pl-active-grid--single' : ''}`}>
+        {activeSlots.map(slot => {
           const plan = activePlans.find(p => slotOf(p) === slot);
-          // The TV has no "start one from the list below": no list there.
-          if (!plan) return isTv ? null : <EmptySlot key={slot} slot={slot} />;
+          if (!plan) {
+            return (
+              <EmptySlot
+                key={slot}
+                slot={slot}
+                onDismiss={slot === 'extra' ? () => saveExtraSlotHidden(true) : undefined}
+                onAdd={!isTv && otherPlans.length > 0 ? () => setQuickPickOpen(true) : undefined}
+              />
+            );
+          }
           const frozen = Boolean(freezeStatus[plan.id]);
           return (
             <ActivePlanCard
@@ -919,6 +1043,12 @@ export default function Plans() {
           );
         })}
       </div>
+      {showAddExtra && (
+        <button type="button" className="pl-add-extra" onClick={() => setQuickPickOpen(true)}>
+          <Plus size={14} />
+          {t('plans.add_extra_plan')}
+        </button>
+      )}
 
       {/* On the TV only the active plans: picking, building and activating
           happen on the computer (the line under the title says so). */}
@@ -927,15 +1057,35 @@ export default function Plans() {
       {!isTv && <>
       {otherPlans.length > 0 && (
         <div className="pl-find">
-          <label className="pl-search">
-            <Search size={18} />
-            <input
-              value={query}
-              onChange={e => setQuery(e.target.value)}
-              placeholder={t('plans.search_placeholder')}
-              aria-label={t('plans.search_placeholder')}
-            />
-          </label>
+          <div className="pl-find-row">
+            <label className="pl-search">
+              <Search size={18} />
+              <input
+                value={query}
+                onChange={e => setQuery(e.target.value)}
+                placeholder={t('plans.search_placeholder')}
+                aria-label={t('plans.search_placeholder')}
+              />
+            </label>
+            {showViewSwitch && (
+            <div className="rx-seg pl-view" role="group" aria-label={t('plans.view_label')}>
+              {/* A phone always shows rows, so there it's just List or Folders. */}
+              {!isMobile && (
+                <button type="button" className={gridOn ? 'is-on' : ''} aria-pressed={gridOn} onClick={() => pickLayout('grid')} title={t('plans.view_grid')} aria-label={t('plans.view_grid')}>
+                  <LayoutGrid size={17} />
+                </button>
+              )}
+              <button type="button" className={listOn ? 'is-on' : ''} aria-pressed={listOn} onClick={() => pickLayout('rows')} title={t('plans.view_list')} aria-label={t('plans.view_list')}>
+                <List size={17} />
+              </button>
+              {showCategoryHeadings && !insideFolders && (
+                <button type="button" className={showFolderGrid ? 'is-on' : ''} aria-pressed={showFolderGrid} onClick={showFolders} title={t('plans.view_folders')} aria-label={t('plans.view_folders')}>
+                  <Folder size={17} />
+                </button>
+              )}
+            </div>
+            )}
+          </div>
           {showCategoryHeadings && (
             <div className="pl-cats">
               {[{ key: ALL, label: t('plans.filter_all'), n: otherPlans.length }, ...categoryTabs].map(c => (
@@ -953,13 +1103,40 @@ export default function Plans() {
         </div>
       )}
 
-      {visibleGroups.map(group => {
+      {showFolderGrid && (
+        <div className="pl-folders">
+          {planGroups.map(group => (
+            <PlanFolderCard
+              key={categoryStorageKey(group.key)}
+              title={groupLabel(group.key)}
+              count={group.plans.length}
+              {...folderCover(group)}
+              favorites={group.key === FAVORITES_KEY}
+              onOpen={() => { setCategoryFilter(group.key || UNCATEGORIZED_KEY); window.scrollTo({ top: 0 }); }}
+            />
+          ))}
+        </div>
+      )}
+
+      {!showFolderGrid && visibleGroups.map(group => {
         const storageKey = categoryStorageKey(group.key);
-        const collapsed = showCategoryHeadings && collapsedCategories.has(storageKey);
+        // Folders don't fold: an open folder is already just that category.
+        const collapsed = !folderMode && showCategoryHeadings && collapsedCategories.has(storageKey);
         const headingLabel = groupLabel(group.key);
         return (
           <section key={storageKey} className="pl-group">
-            {showCategoryHeadings && (
+            {folderMode && (
+              <div className="pl-group-head pl-group-head--folder">
+                {categoryFilter !== ALL && (
+                  <button type="button" className="pl-folder-back" onClick={showFolders} aria-label={t('plans.all_folders')} title={t('plans.all_folders')}>
+                    <ChevronLeft size={20} />
+                  </button>
+                )}
+                <h2>{headingLabel}</h2>
+                <span className="pl-group-count">{group.plans.length}</span>
+              </div>
+            )}
+            {!folderMode && showCategoryHeadings && (
               <button
                 type="button"
                 className="pl-group-head"
@@ -972,7 +1149,7 @@ export default function Plans() {
               </button>
             )}
             {!collapsed && (
-              <div className="pl-grid">
+              <div className={`pl-grid${layout === 'rows' ? ' pl-grid--rows' : ''}`}>
                 {group.plans.map(plan => (
                   <PlanCard
                     key={plan.id}
@@ -1007,11 +1184,27 @@ export default function Plans() {
         <CreateSheet
           aiAvailable={aiAvailable === true}
           onUpload={openUploadPicker}
-          onBuild={() => setIsBuilderOpen(true)}
+          onBuild={openNewPlan}
           onAi={() => setIsAiOpen(true)}
           onImport={() => setIsPlanImportOpen(true)}
           onBackup={() => setExportTarget('*')}
           onClose={() => setIsCreateOpen(false)}
+        />
+      )}
+
+      {quickPickOpen && (
+        <QuickPlanPicker
+          plans={otherPlans.map(p => ({
+            id: p.id,
+            name: p.name,
+            cover: resolveBackgroundUrl(p.background_image),
+            blur: Boolean(p.background_blur),
+            workoutCount: p.workout_count ?? 0,
+            favorite: p.is_favorite === 1,
+            addedAt: p.uploaded_at,
+          }))}
+          onPick={id => { setQuickPickOpen(false); setStartPlanId(id); }}
+          onClose={() => setQuickPickOpen(false)}
         />
       )}
 

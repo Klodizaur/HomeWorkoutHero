@@ -85,26 +85,44 @@ You arrange the training they have. You do not assess anyone's health, diagnose 
 CHOOSING VIDEOS
 - Only ever use ids that appear in the catalogue. Never invent an id, and never use a title in place of an id.
 - Each entry lists its length in minutes and whatever tags exist. Many videos are untagged: infer what you can from the title and length, and never assume an untagged video is easy.
+- Some entries also carry a profile after "profile:": impact (joint load: low/medium/high), level, actual work minutes ("work"), whether it includes its own warm-up/cool-down ("+warmup", "+cooldown"), where it fits ("fits"), and a short note. Use it — it is more reliable than guessing from the title. A profile marked "(unsure)" is a guess; weigh it lightly.
 
 BUILDING A DAY
-- Build the session by time, never by number of videos. Add up the listed minutes and get close to the requested session length — within about ten minutes of it.
-- Short videos (roughly under 15 minutes) are components, not sessions. Stack as many as the time budget needs. A warm-up, six six-minute blocks and a stretch is a perfectly normal 45-minute session; do not stop at two or three videos and leave the session half the length that was asked for.
-- Order a multi-video day properly: a warm-up first, the main work in the middle, a stretch or cool-down last. Never open with hard work and never end on it.
-- If the catalogue has nothing tagged as a warm-up or cool-down, use the shortest and gentlest videos available for those slots, or leave them out — never substitute hard work into them.
+- Build the session by time, never by number of videos. Session length is the sum of the listed minutes. Get close to the requested length: within about 5 minutes for sessions under 30 minutes, within about 10 for longer ones.
+- Main work is what the session is for. Warm-ups, cool-downs and stretching blocks are support. A profile's "work" minutes is the real training inside a video; use it when judging how much main work a day has. On every day that is not deliberately easy, at least two-thirds of the minutes must be main work in the requested style.
+- Every session whose main work is strength, HIIT, pilates or hard cardio starts with a warm-up, whatever its length or intensity — nobody should go straight into exercises cold, beginners least of all. Use a warm-up video, or a short gentle mobility video when there is none.
+- No separate warm-up for sessions whose main work is dance or walking cardio (they start gently by design), or that are entirely stretching, mobility, yoga or relaxation. Be consistent: within one plan, treat the same kind of session the same way.
+- Size the support to the session, never the other way round:
+  - Under 25 minutes: one short warm-up (about 5–8 minutes), then main work. No separate cool-down. A 6-minute warm-up plus two 7-minute blocks is a good 20-minute session; three blocks with no warm-up is not.
+  - 25 to 40 minutes: one short warm-up, and a short cool-down only if it fits; together no more than about a quarter of the session.
+  - Over 40 minutes: a warm-up and a cool-down are normal.
+  - A video marked "+warmup" or "+cooldown" already has one. Do not add another next to it.
+- Short videos (roughly under 15 minutes) are components, not sessions. Stack as many main-work blocks as the time budget needs. A warm-up, six six-minute blocks and a stretch is a perfectly normal 45-minute session; do not stop at two or three videos and leave the session half the length that was asked for.
+- Order a multi-video day properly: any warm-up first, the main work in the middle, any stretch or cool-down last. Never open with hard work and never end on it.
+- A video tagged "Finisher" is a short, hard burnout block: it goes at the end of the main work, right before any cool-down — never first, and at most one per day.
+- If the catalogue has nothing tagged as a warm-up or cool-down, use the shortest and gentlest videos available for those slots — never substitute hard work into them. A cool-down may be left out; a warm-up may not.
 - A long video (roughly 30 minutes or more) is a complete session on its own — it almost always contains its own warm-up and cool-down. Never put two long videos on the same day, and do not bolt extra work onto one. After a hard long session you may add a short stretch or cool-down, nothing more.
+
+FOCUS
+- When focus areas are given, make them the main emphasis of about three in every four sessions. The rest may be supporting or easy days. Do not fill a session's main work with other body parts.
+- When styles are given, the main work of every session that is not deliberately easy must be in those styles.
+- The person's own words outrank the style picks. If they name a specific kind of workout — dance, walking, pilates, yoga, boxing — every session's main work is that kind, judged from titles, tags and profiles. Repeat a fitting video rather than swap in a different kind of workout; only fall back to something else when the catalogue has nothing of that kind left to use.
+- When high intensity is asked for, most sessions' main work should be high intensity. Recovery between hard sessions still applies, but space them with moderate sessions in the requested styles, not with easy ones.
 
 BUILDING THE SEQUENCE
 - Return one flat list of training days, in the order the person will do them. The first entry is their first workout, the second is the next time they train, and so on.
 - NEVER return a rest day, an empty day, a "recovery" entry with no videos, or any placeholder. Every entry must contain at least one video.
 - This matters more than it looks: the app adds rest itself, from the person's own schedule, and it DISCARDS any entry you send with no videos. An empty entry does not become a rest day — it disappears, and the plan ends up shorter than the person asked for. Do not think in weeks with rest days in them; think only in training sessions.
 - Because rest is inserted afterwards, consecutive entries are NOT consecutive calendar days. Read each entry as "the next time this person trains".
-- Hard work still needs recovery. Do not put two high-intensity sessions (HIIT, hard cardio, heavy strength) back to back in the list, and keep them to two or three in any run of ${daysPerWeek} entries.
+- Hard work still needs recovery. Do not put two high-intensity sessions (HIIT, hard cardio, heavy strength) back to back in the list, and keep them to two or three in any run of ${daysPerWeek} entries. The sessions between them should be moderate, not empty of effort — only the one deliberately easy session per run below is truly easy.
 - Do not train the same body part hard on back-to-back entries. Alternate the emphasis.
-- Use the breadth of the catalogue. Avoid repeating a video within any run of ${daysPerWeek} entries unless the catalogue is too small to avoid it, and never on back-to-back entries.
-- In any run of ${daysPerWeek} entries, make at least one deliberately easy — mobility, stretching, or low intensity.
+- Use the breadth of the catalogue. Avoid repeating a video within any run of ${daysPerWeek} entries unless the catalogue is too small to avoid it, and never repeat the same set of videos as a whole session. Warm-up and cool-down videos may repeat freely.
+- In any run of ${daysPerWeek} entries, make at least one deliberately easy. Keep it in the requested kind of workout at a gentler level where the catalogue allows (an easy dance video for a dance plan, a gentle pilates session for a pilates plan); otherwise use mobility or stretching.
 
 PROGRESSION
-- Build gradually. Do not open with the hardest sessions available.
+- If the person describes a progression (session lengths, levels, a ramp), follow it exactly.
+- Otherwise, build gradually even if they did not ask: open with easier or beginner/all-level videos and less main work, and finish noticeably more demanding — more main-work minutes, harder or higher-level videos — than you started. In a plan of six or more sessions, the last third should clearly be harder than the first third.
+- Skip the ramp only for plans that are meant to stay gentle: recovery, period, stretching or "easy week" requests.
 - Increase volume or intensity a little at a time, and not both at once.
 - Over a long plan, make roughly every fourth run of ${daysPerWeek} entries lighter to allow recovery.
 
@@ -235,13 +253,15 @@ function buildUserPrompt(
     // should be budgeting a day's total rather than re-checking each video.
     lines.push(
       `Target session length: about ${request.maxMinutes} minutes per training day. ` +
-      'No single video in the catalogue is longer than that, so reach the target ' +
-      'by stacking as many short videos as it takes, or let one long video ' +
-      'stand alone. Getting close to the target matters more than keeping the ' +
-      'number of videos low.'
+      'Some videos run up to about 10 minutes over it; such a video is the whole ' +
+      'day on its own, with nothing added. Otherwise reach the target by stacking ' +
+      'as many short videos as it takes, or let one long video stand alone. Getting close to the target matters more than keeping the ' +
+      'number of videos low. Size the warm-up and cool-down to this length as ' +
+      'the rules describe.'
     );
   }
   if (request.intensity) lines.push(`Preferred intensity: ${request.intensity}.`);
+  if (request.level) lines.push(`Their level: ${request.level}. Prefer videos for that level or all levels; use harder ones only as the plan builds up, and never open with them.`);
   if (request.trainingTypes.length) lines.push(`Preferred styles: ${request.trainingTypes.join(', ')}.`);
   if (request.bodyParts.length) lines.push(`Focus areas: ${request.bodyParts.join(', ')}.`);
   if (request.equipment.length) lines.push(`Equipment available: ${request.equipment.join(', ')}.`);
@@ -269,11 +289,28 @@ function formatCandidate(candidate: Candidate): string {
   const facts: string[] = [];
   if (candidate.minutes) facts.push(`${candidate.minutes}min`);
   if (candidate.intensity) facts.push(candidate.intensity);
+  if (candidate.level) facts.push(candidate.level === 'all' ? 'all levels' : candidate.level);
   if (candidate.types.length) facts.push(candidate.types.join('/'));
   if (candidate.parts.length) facts.push(candidate.parts.join('/'));
   if (candidate.equipment.length) facts.push(`needs ${candidate.equipment.join('+')}`);
   const suffix = facts.length ? ` [${facts.join(' | ')}]` : '';
-  return `${candidate.id} :: ${candidate.title}${suffix}`;
+  return `${candidate.id} :: ${candidate.title}${suffix}${formatProfile(candidate)}`;
+}
+
+/** The profile, compacted to one bracket: this is per-token on every candidate. */
+function formatProfile(candidate: Candidate): string {
+  const profile = candidate.profile;
+  if (!profile) return '';
+  const facts: string[] = [];
+  if (profile.impact) facts.push(`${profile.impact} impact`);
+  if (profile.workMinutes && profile.workMinutes !== candidate.minutes) facts.push(`work ${profile.workMinutes}min`);
+  if (profile.warmup) facts.push('+warmup');
+  if (profile.cooldown) facts.push('+cooldown');
+  if (profile.goodFor.length) facts.push(`fits: ${profile.goodFor.join(', ')}`);
+  if (profile.notes) facts.push(profile.notes);
+  if (facts.length === 0) return '';
+  const unsure = profile.confidence === 'low' ? ' (unsure)' : '';
+  return ` profile${unsure}: ${facts.join('; ')}`;
 }
 
 /**
@@ -338,12 +375,18 @@ function validateDays(
     if (Array.isArray(rawIds)) {
       for (const value of rawIds) {
         if (typeof value !== 'string') continue;
-        const id = value.trim();
-        if (!id || seen.has(id)) continue;
+        let id = value.trim();
+        if (!id) continue;
         if (!known.has(id)) {
-          dropped.add(id);
-          continue;
+          // Models sometimes copy an id with a character missing or changed.
+          const recovered = nearestId(id, known);
+          if (!recovered) {
+            dropped.add(id);
+            continue;
+          }
+          id = recovered;
         }
+        if (seen.has(id)) continue;
         seen.add(id);
         videoIds.push(id);
       }
@@ -354,6 +397,37 @@ function validateDays(
   }
 
   return { days, droppedIds: Array.from(dropped) };
+}
+
+/**
+ * The one catalogue id within two edits of `id`, or null when there is none or
+ * more than one. Ids are 21 random characters, so a near miss can only mean
+ * that video; a tie is left alone rather than guessed.
+ */
+function nearestId(id: string, known: Set<string>): string | null {
+  if (id.length < 10) return null;
+  let match: string | null = null;
+  for (const candidate of known) {
+    if (Math.abs(candidate.length - id.length) > 2) continue;
+    if (editDistance(id, candidate) <= 2) {
+      if (match) return null;
+      match = candidate;
+    }
+  }
+  return match;
+}
+
+/** Levenshtein distance. Ids are short and the catalogue is capped, so plain is fine. */
+function editDistance(a: string, b: string): number {
+  let prev = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    const row = [i];
+    for (let j = 1; j <= b.length; j++) {
+      row[j] = Math.min(prev[j] + 1, row[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    }
+    prev = row;
+  }
+  return prev[b.length];
 }
 
 /** Keep a model-suggested title short and safe to drop into the builder field. */

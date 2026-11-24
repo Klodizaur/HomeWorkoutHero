@@ -55,6 +55,8 @@ export interface AiSettings {
   model: string;
   descriptionLanguage: DescriptionLanguage;
   planFlow: AiPlanFlow;
+  /** Profile library videos in the background for the plan builder. Off until switched on. */
+  videoProfiles: boolean;
 }
 
 const DEFAULT_BASE_URL: Record<AiProvider, string> = {
@@ -114,6 +116,7 @@ export function getAiSettings(): AiSettings {
     // Defaults to the all-at-once form the feature shipped with, so nobody's
     // builder changes shape underneath them.
     planFlow: read('plan_flow') === 'guided' ? 'guided' : 'all',
+    videoProfiles: read('video_profiles') === '1',
   };
 }
 
@@ -125,6 +128,7 @@ export function saveAiSettings(patch: {
   model?: string;
   descriptionLanguage?: DescriptionLanguage;
   planFlow?: AiPlanFlow;
+  videoProfiles?: boolean;
 }): void {
   if (patch.provider !== undefined) {
     write('provider', patch.provider === 'openai' ? 'openai' : 'anthropic');
@@ -144,6 +148,9 @@ export function saveAiSettings(patch: {
   }
   if (patch.planFlow !== undefined) {
     write('plan_flow', patch.planFlow === 'guided' ? 'guided' : 'all');
+  }
+  if (patch.videoProfiles !== undefined) {
+    write('video_profiles', patch.videoProfiles ? '1' : '0');
   }
 }
 

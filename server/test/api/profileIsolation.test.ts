@@ -114,3 +114,16 @@ describe('guide banner', () => {
     expect((await users.bob.get('/api/settings')).json().guide_dismissed).toBe(false);
   });
 });
+
+describe('empty extra-plan card', () => {
+  it("hiding it is Alice's choice alone, and she can bring it back", async () => {
+    expect((await users.alice.get('/api/settings')).json().extra_slot_hidden).toBe(false);
+    expect((await users.alice.post('/api/settings', { extra_slot_hidden: true })).statusCode).toBe(200);
+
+    expect((await users.alice.get('/api/settings')).json().extra_slot_hidden).toBe(true);
+    expect((await users.bob.get('/api/settings')).json().extra_slot_hidden).toBe(false);
+
+    await users.alice.post('/api/settings', { extra_slot_hidden: false });
+    expect((await users.alice.get('/api/settings')).json().extra_slot_hidden).toBe(false);
+  });
+});

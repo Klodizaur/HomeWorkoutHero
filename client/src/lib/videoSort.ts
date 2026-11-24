@@ -5,10 +5,12 @@ import type { Video } from '../types/video';
  * the plan builder's picker, so they offer the same choices and agree on them.
  *
  * `size`/`small` are longest/shortest for videos (and most/fewest videos for
- * folders); `newest`/`oldest` go by when a video arrived — `added_at`, the same
- * date the dashboard's "Recently added" uses.
+ * folders); `long`/`short` are always by length (a folder's: all its videos
+ * together); `done`/`undone` by how many times it was completed;
+ * `newest`/`oldest` go by when a video arrived — `added_at`, the same date the
+ * dashboard's "Recently added" uses.
  */
-export type VideoSort = 'az' | 'za' | 'size' | 'small' | 'newest' | 'oldest';
+export type VideoSort = 'az' | 'za' | 'size' | 'small' | 'long' | 'short' | 'done' | 'undone' | 'newest' | 'oldest';
 
 export const naturalCompare = (a: string, b: string) =>
   a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
@@ -24,15 +26,33 @@ export function compareAdded(a: string | null | undefined, b: string | null | un
   return (a < b ? -1 : 1) * (newestFirst ? -1 : 1);
 }
 
+/**
+ * Compare two numbers, biggest or smallest first. A missing one (a video whose
+ * length isn't known yet) always sorts last, whichever way round.
+ */
+export function compareAmount(a: number | null | undefined, b: number | null | undefined, biggestFirst: boolean): number {
+  const hasA = typeof a === 'number' && a > 0;
+  const hasB = typeof b === 'number' && b > 0;
+  if (!hasA || !hasB) return hasA === hasB ? 0 : hasA ? -1 : 1;
+  return (a - b) * (biggestFirst ? -1 : 1);
+}
+
 /** A sorted copy; ties fall back to the name so the order is stable. */
 export function sortVideos(videos: Video[], sort: VideoSort): Video[] {
   const byName = (a: Video, b: Video) => naturalCompare(a.filename, b.filename);
   const sorted = [...videos];
   switch (sort) {
     case 'size':
-      return sorted.sort((a, b) => (b.duration_seconds || 0) - (a.duration_seconds || 0));
+    case 'long':
+      return sorted.sort((a, b) => compareAmount(a.duration_seconds, b.duration_seconds, true) || byName(a, b));
     case 'small':
-      return sorted.sort((a, b) => (a.duration_seconds || 0) - (b.duration_seconds || 0));
+    case 'short':
+      return sorted.sort((a, b) => compareAmount(a.duration_seconds, b.duration_seconds, false) || byName(a, b));
+    // Never-done videos count as 0 here, not "unknown": least done puts them first.
+    case 'done':
+      return sorted.sort((a, b) => (b.completed_count || 0) - (a.completed_count || 0) || byName(a, b));
+    case 'undone':
+      return sorted.sort((a, b) => (a.completed_count || 0) - (b.completed_count || 0) || byName(a, b));
     case 'newest':
     case 'oldest':
       return sorted.sort((a, b) => compareAdded(a.added_at, b.added_at, sort === 'newest') || byName(a, b));

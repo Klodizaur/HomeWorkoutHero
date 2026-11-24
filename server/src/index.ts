@@ -23,6 +23,8 @@ import { appVersion } from './version.js';
 import { clientProfile, copyPlan, decidePlayback, mediaForVideo, probeMedia } from './playback.js';
 import { hlsPlaylist, hlsSegment, progressiveMp4, SEGMENT_SECONDS, segmentCount } from './transcode.js';
 import type { FfmpegProcess } from './transcode.js';
+import { startVideoProfiler } from './ai/videoProfiler.js';
+import { startAutoScan } from './autoScan.js';
 
 const fastify = Fastify({ logger: true });
 
@@ -490,6 +492,10 @@ const start = async () => {
     await fastify.listen({ port, host });
     // Each profile's automatic backups, on their own schedules.
     startBackupSchedule(msg => fastify.log.info(msg));
+    // Background video profiles, for profiles that switched them on in AI settings.
+    startVideoProfiler();
+    // Library scans for profiles that switched on auto-scan in Settings.
+    startAutoScan();
     console.log(`Server running on http://localhost:${port}`);
   } catch (err) {
     fastify.log.error(err);

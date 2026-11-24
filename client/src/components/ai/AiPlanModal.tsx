@@ -11,7 +11,7 @@
  * Two layouts share the same fields: a guided wizard (one question per step, the
  * redesign's default look) and an all-at-once page, chosen in AI settings.
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactElement } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
@@ -19,8 +19,8 @@ import {
   ArrowLeft, ArrowRight, Ban, Check, FileVideo, Folder, Library, Minus, PartyPopper, Plus,
   RotateCcw, Shuffle, SignalHigh, SignalLow, SignalMedium, Sparkles, X,
 } from 'lucide-react';
-import { EQUIPMENT_ITEMS } from '../../lib/equipment';
-import { BODY_PARTS, INTENSITIES, TRAINING_TYPES } from '../../lib/metadata';
+import { INTENSITIES, LEVELS, trainingTypeGroup, TRAINING_TYPE_GROUPS } from '../../lib/metadata';
+import { useTagCatalog } from '../../lib/tagCatalog';
 import { useMetaLabels } from '../../lib/labels';
 import { albumKeyForVideo, isExternalAlbumKey } from '../../lib/paths';
 import { DEFAULT_PATTERN } from '../WorkoutPatternPicker';
@@ -158,8 +158,13 @@ const INTENSITY_ICONS = { low: SignalLow, medium: SignalMedium, high: SignalHigh
 export default function AiPlanModal({ open, onClose, onGenerated, onSaved }: Props) {
   const { t } = useTranslation();
   const labels = useMetaLabels();
+  const catalog = useTagCatalog();
 
   const [description, setDescription] = useState('');
+  // Set once a draft comes back. The other answers carry over to the next
+  // plan (equipment, albums and days rarely change), but the request itself
+  // almost always does — and typing into last time's text mixes two requests.
+  const madePlan = useRef(false);
   const [workoutDays, setWorkoutDays] = useState(DEFAULT_WORKOUT_DAYS);
   // How often this person trains. Decides the plan's real length on the
   // calendar, and paces the draft — so it belongs beside the day count rather
@@ -177,6 +182,8 @@ export default function AiPlanModal({ open, onClose, onGenerated, onSaved }: Pro
   const [trainingTypes, setTrainingTypes] = useState<string[]>([]);
   const [bodyParts, setBodyParts] = useState<string[]>([]);
   const [intensity, setIntensity] = useState('');
+  // The person's own level, which steers which videos the builder prefers.
+  const [level, setLevel] = useState('');
   const [albumStates, setAlbumStates] = useState<Record<string, AlbumState>>({});
   // Subfolders switched off inside an included album (key -> true). Everything
   // is on by default, so this only holds the exceptions.
@@ -213,6 +220,10 @@ export default function AiPlanModal({ open, onClose, onGenerated, onSaved }: Pro
     setPhase('form');
     setDraft(null);
     setError('');
+    if (madePlan.current) {
+      setDescription('');
+      madePlan.current = false;
+    }
     let cancelled = false;
     fetch('/api/ai/status')
       .then(r => r.json())
@@ -369,6 +380,7 @@ export default function AiPlanModal({ open, onClose, onGenerated, onSaved }: Pro
           trainingTypes,
           bodyParts,
           intensity,
+          level,
           includeAlbums: Object.keys(albumStates).filter(k => albumStates[k] === 'include'),
           excludeAlbums: Object.keys(albumStates).filter(k => albumStates[k] === 'exclude'),
           // Only meaningful inside an album that is actually included.
@@ -387,6 +399,7 @@ export default function AiPlanModal({ open, onClose, onGenerated, onSaved }: Pro
 
       setDraft(toBuilderWeeks(data, videos, workoutDays, patternCustom ? workoutPattern : null));
       setPhase('done');
+      madePlan.current = true;
     } catch {
       setError(t('ai.error_unreachable'));
       setPhase('form');
@@ -550,18 +563,18 @@ export default function AiPlanModal({ open, onClose, onGenerated, onSaved }: Pro
           <p className="ai-note">{t('ai.equipment_hint')}</p>
         </div>
         <div className="ai-chips">
-          {EQUIPMENT_ITEMS.map(item => {
-            const on = equipment.includes(item.id);
+          {catalog.equipment.map(id => {
+            const on = equipment.includes(id);
             return (
               <button
                 type="button"
-                key={item.id}
+                key={id}
                 className={`ai-chip ai-chip--gear${on ? ' is-on' : ''}`}
                 aria-pressed={on}
-                onClick={() => toggle(equipment, item.id, setEquipment)}
+                onClick={() => toggle(equipment, id, setEquipment)}
               >
                 {on && <Check size={14} />}
-                {labels.equipment(item.id)}
+                {labels.equipment(id)}
               </button>
             );
           })}
@@ -576,23 +589,28 @@ export default function AiPlanModal({ open, onClose, onGenerated, onSaved }: Pro
           <h2 className="ai-q">{t('ai.styles_label')}</h2>
           <p className="ai-note">{t('ai.pick_one')}</p>
         </div>
-        <div className="ai-chips">
-          {TRAINING_TYPES.map(type => {
-            const on = trainingTypes.includes(type);
-            return (
-              <button
-                type="button"
-                key={type}
-                className={`ai-chip ai-chip--type${on ? ' is-on' : ''}`}
-                aria-pressed={on}
-                onClick={() => toggle(trainingTypes, type, setTrainingTypes)}
-              >
-                {on && <Check size={14} />}
-                {labels.trainingType(type)}
-              </button>
-            );
-          })}
-        </div>
+        {(Object.keys(TRAINING_TYPE_GROUPS) as (keyof typeof TRAINING_TYPE_GROUPS)[]).map(group => (
+          <div key={group} className="ai-chip-group">
+            <div className="ai-chip-group-label">{labels.typeGroup(group)}</div>
+            <div className="ai-chips">
+              {catalog.trainingTypes.filter(type => trainingTypeGroup(type) === group).map(type => {
+                const on = trainingTypes.includes(type);
+                return (
+                  <button
+                    type="button"
+                    key={type}
+                    className={`ai-chip ai-chip--type${on ? ' is-on' : ''}`}
+                    aria-pressed={on}
+                    onClick={() => toggle(trainingTypes, type, setTrainingTypes)}
+                  >
+                    {on && <Check size={14} />}
+                    {labels.trainingType(type)}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
         {chipCount(trainingTypes.length, () => setTrainingTypes([]))}
       </div>
     ),
@@ -604,7 +622,7 @@ export default function AiPlanModal({ open, onClose, onGenerated, onSaved }: Pro
           <p className="ai-note">{t('ai.pick_one')}</p>
         </div>
         <div className="ai-chips">
-          {BODY_PARTS.map(part => {
+          {catalog.bodyParts.map(part => {
             const on = bodyParts.includes(part);
             return (
               <button
@@ -641,6 +659,14 @@ export default function AiPlanModal({ open, onClose, onGenerated, onSaved }: Pro
               onClick={() => setIntensity(value)}
             >
               <Icon size={22} />
+              {label}
+            </button>
+          ))}
+        </div>
+        <h2 className="ai-q ai-q--sub">{t('ai.level_label')}</h2>
+        <div className="rx-seg ai-level-seg">
+          {[{ value: '', label: t('ai.any') }, ...LEVELS.filter(v => v !== 'all').map(v => ({ value: v as string, label: labels.level(v) }))].map(({ value, label }) => (
+            <button key={value || 'any'} type="button" className={level === value ? 'is-on' : ''} aria-pressed={level === value} onClick={() => setLevel(value)}>
               {label}
             </button>
           ))}
@@ -736,7 +762,7 @@ export default function AiPlanModal({ open, onClose, onGenerated, onSaved }: Pro
     : guided ? t('plans.builder_step', { current: stepIndex + 1, total: steps.length })
     : t('ai.builder_intro');
 
-  const summaryRows: { key: StepKey; label: string; value: string }[] = [
+  const summaryRows: { key: StepKey | 'level'; label: string; value: string }[] = [
     { key: 'describe', label: t('ai.summary_goal'), value: description.trim() },
     { key: 'days', label: t('ai.summary_days'), value: t('ai.summary_days_value', { days: workoutDays, count: patternWorkoutDays, total: cycleLength }) },
     { key: 'minutes', label: t('ai.summary_minutes'), value: `${maxMinutes} ${t('ai.minutes_unit')} · ${t(sessionBand(maxMinutes))}` },
@@ -744,6 +770,7 @@ export default function AiPlanModal({ open, onClose, onGenerated, onSaved }: Pro
     { key: 'styles', label: t('ai.summary_styles'), value: trainingTypes.map(labels.trainingType).join(', ') },
     { key: 'focus', label: t('ai.summary_focus'), value: bodyParts.map(labels.bodyPart).join(', ') },
     { key: 'intensity', label: t('ai.intensity_label'), value: intensity ? labels.intensity(intensity) : t('ai.any') },
+    { key: 'level', label: t('ai.level_label'), value: level ? labels.level(level) : t('ai.any') },
     ...(steps.includes('albums') ? [{ key: 'albums' as StepKey, label: t('ai.albums_label'), value: albumSummary }] : []),
   ];
 
@@ -787,14 +814,7 @@ export default function AiPlanModal({ open, onClose, onGenerated, onSaved }: Pro
           )}
 
           {phase === 'gen' && (
-            <div className="ai-gen">
-              <div className="ai-spinner" />
-              <div className="ai-gen-title">{t('ai.drafting')}</div>
-              <div className="ai-gen-note">
-                {t('ai.drafting_note', { days: workoutDays, minutes: maxMinutes, videos: usableVideos })}
-              </div>
-              <div className="ai-gen-note">{t('ai.generating_hint')}</div>
-            </div>
+            <GenerationProgress days={workoutDays} minutes={maxMinutes} videos={usableVideos} />
           )}
 
           {phase === 'done' && (
@@ -978,3 +998,53 @@ function clamp(value: number, min: number, max: number): number {
   if (Number.isNaN(value)) return min;
   return Math.min(Math.max(value, min), max);
 }
+
+/**
+ * What the wait screen shows while a plan is drafted: a spinner and one line
+ * of text that changes every few seconds, like a game's loading screen.
+ *
+ * The server does it all in one request, so there is no real progress to
+ * report. The first lines say what genuinely happens first; after that, what
+ * the coach is actually weighing (taken from its rules) alternates with a joke.
+ */
+function GenerationProgress({ days, minutes, videos }: { days: number; minutes: number; videos: number }) {
+  const { t } = useTranslation();
+  const [tick, setTick] = useState(0);
+  // Jokes start at a random point so the same one doesn't open every time.
+  const [jokeOffset] = useState(() => Math.floor(Math.random() * FUN_LINES));
+
+  useEffect(() => {
+    const id = window.setInterval(() => setTick(n => n + 1), LINE_MS);
+    return () => window.clearInterval(id);
+  }, []);
+
+  const opening = [
+    t('ai.gen_step_filter', { videos }),
+    t('ai.gen_step_profiles'),
+    t('ai.gen_step_arrange', { days }),
+  ];
+  const real = [
+    t('ai.gen_think_time', { minutes }),
+    t('ai.gen_think_recovery'),
+    t('ai.gen_think_warmup'),
+    t('ai.gen_think_focus'),
+    t('ai.gen_think_progression'),
+    t('ai.gen_think_variety'),
+  ];
+  const cycle = real.flatMap((line, index) => [line, t(`ai.gen_fun_${((index + jokeOffset) % FUN_LINES) + 1}`)]);
+  const line = tick < opening.length ? opening[tick] : cycle[(tick - opening.length) % cycle.length];
+
+  return (
+    <div className="ai-gen">
+      <div className="ai-spinner" />
+      {/* Keyed so each new line fades in rather than swapping abruptly. */}
+      <div key={tick} className="ai-gen-line" aria-live="polite">{line}</div>
+    </div>
+  );
+}
+
+/** How long each line stays up. */
+const LINE_MS = 3500;
+
+/** How many `ai.gen_fun_N` lines the locales define. */
+const FUN_LINES = 8;

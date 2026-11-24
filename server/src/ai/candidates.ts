@@ -11,6 +11,13 @@
 import db from '../db.js';
 import { VIDEO_COLUMNS, formatVideoRow } from '../routes/library.js';
 import { PROFILE_VIDEOS } from '../profiles.js';
+import { getVideoProfiles, VideoProfile } from './videoProfiler.js';
+
+/** How far over the session length a single video may run and still be offered. */
+const LENGTH_SLACK_MINUTES = 10;
+
+/** Equipment that never rules a video out. */
+const ALWAYS_AVAILABLE = new Set(['mat', 'no_equipment']);
 
 /** How many candidates to send at most, whatever the library size. */
 const MAX_CANDIDATES = 200;
@@ -36,6 +43,8 @@ export interface CandidateFilter {
   intensity: string;
   trainingTypes: string[];
   bodyParts: string[];
+  /** The person's level: beginner, intermediate or advanced. Empty means any. Optional for older callers. */
+  level?: string;
 }
 
 /** What the model is shown per video. Deliberately terse: this is per-token. */
@@ -48,6 +57,10 @@ export interface Candidate {
   parts: string[];
   intensity: string;
   album: string;
+  /** Who the video suits — the user's own setting, else its profile's guess. */
+  level: string;
+  /** What the background profiler worked out, when it has run for this video. */
+  profile?: VideoProfile;
 }
 
 export interface CandidateSet {
@@ -103,7 +116,10 @@ export function selectCandidates(filter: CandidateFilter): CandidateSet {
   const include = new Set(filter.includeAlbums);
   const exclude = new Set(filter.excludeAlbums);
   const excludeFolders = new Set(filter.excludeFolders ?? []);
-  const maxSeconds = filter.maxMinutes > 0 ? filter.maxMinutes * 60 : 0;
+  // The session length is a target, not a limit on each video: a video a
+  // little longer still fits a day on its own, and dropping it would empty
+  // out folders of 26–30 minute workouts for a 25-minute plan.
+  const maxSeconds = filter.maxMinutes > 0 ? (filter.maxMinutes + LENGTH_SLACK_MINUTES) * 60 : 0;
 
   const matched = videos.filter(video => {
     const album = albumKeyForVideo(video);
@@ -116,7 +132,10 @@ export function selectCandidates(filter: CandidateFilter): CandidateSet {
 
     // Only a hard filter when the user actually told us what they own —
     // otherwise an untagged library would filter down to nothing.
-    if (owned.size > 0 && video.equipment.some(item => !owned.has(item))) return false;
+    // A mat (or nothing at all) is never a reason to leave a video out:
+    // nearly everyone has a floor, and "No equipment" without "Mat" ticked
+    // would otherwise quietly drop half the bodyweight and dance videos.
+    if (owned.size > 0 && video.equipment.some(item => !ALWAYS_AVAILABLE.has(item) && !owned.has(item))) return false;
 
     // Unknown duration is kept rather than dropped: most imported videos have
     // one, but a video the scan never probed shouldn't silently disappear.
@@ -127,8 +146,11 @@ export function selectCandidates(filter: CandidateFilter): CandidateSet {
 
   // Rank by how well each video matches the soft preferences, so the cap trims
   // the least relevant rather than an arbitrary tail. Ties keep library order.
+  const profiles = getVideoProfiles(matched.map(video => video.id));
+  const levelOf = (video: { id: string; level?: string }) => video.level || profiles.get(video.id)?.level || '';
+
   const ranked = matched
-    .map((video, index) => ({ video, index, score: softScore(video, filter) }))
+    .map((video, index) => ({ video, index, score: softScore(video, filter) + levelScore(levelOf(video), filter.level) }))
     .sort((a, b) => (b.score - a.score) || (a.index - b.index))
     .slice(0, MAX_CANDIDATES);
 
@@ -142,10 +164,25 @@ export function selectCandidates(filter: CandidateFilter): CandidateSet {
       parts: video.body_parts,
       intensity: video.intensity,
       album: albumKeyForVideo(video),
+      level: levelOf(video),
+      profile: profiles.get(video.id),
     })),
     matched: matched.length,
     truncated: matched.length > MAX_CANDIDATES,
   };
+}
+
+/**
+ * How well a video's level suits the person. Matching or "all levels" is a
+ * plus; a level far from theirs is a minus, but never a filter — a beginner
+ * plan may still want the odd intermediate video as it builds up.
+ */
+function levelScore(videoLevel: string, personLevel?: string): number {
+  if (!personLevel || !videoLevel) return 0;
+  if (videoLevel === 'all' || videoLevel === personLevel) return 1.5;
+  const order = ['beginner', 'intermediate', 'advanced'];
+  const gap = Math.abs(order.indexOf(videoLevel) - order.indexOf(personLevel));
+  return gap >= 2 ? -2 : 0;
 }
 
 function softScore(

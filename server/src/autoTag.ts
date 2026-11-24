@@ -53,7 +53,22 @@ const NEGATION_WINDOW = 2;
 const EQUIPMENT_RULES: Rule[] = [
   { tag: 'dumbbells', stems: ['hantl', 'hantel', 'dumbbell', 'ciezark'] },
   { tag: 'kettlebell', stems: ['kettlebell', 'kettle', 'odwaznik', 'girya'] },
-  { tag: 'resistance_bands', stems: ['guma', 'gumy', 'gumami', 'gumach', 'tasma', 'tasmy'], phrases: ['resistance band', 'mini band'] },
+  { tag: 'resistance_bands', stems: ['guma', 'gumy', 'gumami', 'gumach', 'tasma', 'tasmy'], phrases: ['resistance band'] },
+  { tag: 'mini_bands', stems: ['miniband'], phrases: ['mini band', 'mini guma', 'mini gumy', 'loop band'] },
+  { tag: 'ankle_weights', phrases: ['ankle weight', 'obciazniki na kostki', 'obciaznikami na kostki', 'obciazniki na nogi'] },
+  { tag: 'jump_rope', stems: ['skakank'], phrases: ['jump rope', 'skipping rope'] },
+  { tag: 'ab_roller', phrases: ['ab roller', 'ab wheel', 'kolko do brzucha', 'kolkiem do brzucha', 'roller do brzucha', 'kolko do cwiczen'] },
+  { tag: 'pull_up_bar', phrases: ['pull up bar', 'drazek do podciagania', 'drazku do podciagania', 'na drazku'] },
+  { tag: 'weighted_hula_hoop', phrases: ['hula hop', 'hula hoop', 'hulahop'] },
+  { tag: 'trampoline', stems: ['trampolin', 'rebounder'] },
+  { tag: 'treadmill', stems: ['biezni', 'treadmill'] },
+  { tag: 'exercise_bike', stems: ['spinning'], phrases: ['rower stacjonarny', 'rowerze stacjonarnym', 'stationary bike', 'exercise bike', 'indoor cycling'] },
+  { tag: 'rowing_machine', stems: ['wiosl'], phrases: ['rowing machine', 'ergometr wioslarski'] },
+  { tag: 'medicine_ball', phrases: ['medicine ball', 'pilka lekarska', 'pilka lekarska', 'slam ball'] },
+  { tag: 'yoga_block', phrases: ['yoga block', 'kostka do jogi', 'kostki do jogi', 'klocek do jogi'] },
+  { tag: 'foam_roller', stems: ['rolowan'], phrases: ['foam roller', 'foam rolling', 'roller do masazu'] },
+  { tag: 'chair', stems: ['krzesl', 'chair'] },
+  { tag: 'sliders', stems: ['slider', 'slidery'], phrases: ['dyski slizgowe'] },
   { tag: 'gym_ball', phrases: ['pilka gimnastyczna', 'gym ball', 'swiss ball', 'fitball', 'pilka fitness'] },
   { tag: 'pilates_ball', phrases: ['pilka pilates', 'mala pilka', 'pilates ball', 'soft ball'] },
   { tag: 'pilates_bar', phrases: ['drazek pilates', 'pilates bar'] },
@@ -64,7 +79,23 @@ const EQUIPMENT_RULES: Rule[] = [
 
 const TRAINING_TYPE_RULES: Rule[] = [
   { tag: 'HIIT', stems: ['hiit', 'tabata', 'interwal', 'interval'] },
+  // A kind of HIIT, so a tabata title gets both tags and HIIT filters still find it.
+  { tag: 'Tabata', stems: ['tabata'] },
+  { tag: 'Circuit', stems: ['obwod', 'circuit', 'bootcamp'] },
+  { tag: 'Calisthenics', stems: ['kalisteni', 'calisthenic'] },
+  // Exercise machines only — "rowerki" are an ab exercise, not a bike.
+  { tag: 'Treadmill', stems: ['biezni', 'treadmill'] },
+  { tag: 'Indoor Cycling', stems: ['spinning'], phrases: ['indoor cycling', 'rower stacjonarny', 'rowerze stacjonarnym', 'stationary bike', 'exercise bike'] },
+  { tag: 'Finisher', stems: ['finisher'] },
+  { tag: 'Seniors', stems: ['senior'], phrases: ['po 50', 'po 60', 'over 50', 'over 60', '50 plus', '60 plus'] },
   { tag: 'Cardio', stems: ['cardio', 'kardio', 'aerobik', 'aerobic'] },
+  { tag: 'Dance', stems: ['dance', 'taniec', 'tance', 'tanecz', 'zumba', 'choreo'] },
+  { tag: 'Aerobics', stems: ['aerobik', 'aerobic'], phrases: ['step aerobik', 'step aerobic'] },
+  { tag: 'Boxing', stems: ['boks', 'boxing', 'kickbox', 'kickboks'] },
+  { tag: 'Walking', stems: ['walking', 'marsz'], phrases: ['walk at home', 'indoor walk'] },
+  { tag: 'Barre', stems: ['barre'] },
+  { tag: 'Body & Mind', stems: ['relaks', 'relax', 'medytac', 'meditat', 'oddech', 'breath', 'mindful', 'uwaznosc'], phrases: ['body mind', 'tai chi', 'qi gong', 'body and mind'] },
+  { tag: 'Kids', stems: ['dzieci', 'dziecka', 'kids', 'children'], phrases: ['dla dzieci', 'for kids'] },
   { tag: 'Strength', stems: ['silow', 'wzmacniaj', 'wzmocnien', 'strength'] },
   { tag: 'Mobility', stems: ['mobility', 'mobilnosc'] },
   { tag: 'Yoga', stems: ['joga', 'jogi', 'yoga'] },
@@ -76,6 +107,10 @@ const TRAINING_TYPE_RULES: Rule[] = [
   { tag: 'Standing', stems: ['standing'], phrases: ['na stojaco'] },
   { tag: 'No Jumping', phrases: ['bez skakania', 'bez skokow', 'no jumping', 'low impact'] },
   { tag: 'Period-Friendly', stems: ['miesiaczk'], phrases: ['period friendly', 'na okres'] },
+  { tag: 'Quiet', phrases: ['quiet workout', 'apartment friendly', 'cichy trening', 'dla sasiadow'] },
+  { tag: 'Seated', phrases: ['na krzesle', 'na siedzaco', 'chair workout', 'seated workout'] },
+  { tag: 'Prenatal', stems: ['prenatal', 'pregnan'], phrases: ['w ciazy', 'dla kobiet w ciazy'] },
+  { tag: 'Postnatal', stems: ['postnatal', 'postpartum'], phrases: ['po porodzie', 'po ciazy'] },
 ];
 
 const BODY_PART_RULES: Rule[] = [
@@ -92,6 +127,9 @@ const BODY_PART_RULES: Rule[] = [
   { tag: 'arms', stems: ['rece', 'ramion', 'biceps', 'triceps', 'arms'] },
   { tag: 'shoulders', stems: ['barki', 'barkow', 'shoulders'] },
   { tag: 'chest', stems: ['klatka', 'klatke', 'chest'] },
+  { tag: 'hips', stems: ['biodr', 'hips'] },
+  { tag: 'pelvic_floor', phrases: ['dna miednicy', 'dno miednicy', 'pelvic floor'] },
+  { tag: 'neck', stems: ['szyj', 'kark', 'neck', 'postur'], phrases: ['zdrowa postawa'] },
 ];
 
 const INTENSITY_RULES: Rule[] = [
@@ -161,9 +199,17 @@ export function autoTagFromTitle(title: string): AutoTags {
   const intensities = applyRules(INTENSITY_RULES, normalized, words, VALID_INTENSITIES);
 
   return {
-    equipment: applyRules(EQUIPMENT_RULES, normalized, words, VALID_EQUIPMENT),
+    equipment: withoutOverlaps(applyRules(EQUIPMENT_RULES, normalized, words, VALID_EQUIPMENT)),
     training_type: applyRules(TRAINING_TYPE_RULES, normalized, words, VALID_TRAINING_TYPES),
     body_parts: applyRules(BODY_PART_RULES, normalized, words, VALID_BODY_PARTS),
     intensity: intensities[0] || '',
   };
+}
+
+/**
+ * "Mini guma" matches both the generic band stems and the mini-band phrase.
+ * The specific tag is the right one, so the generic one goes.
+ */
+function withoutOverlaps(equipment: string[]): string[] {
+  return equipment.includes('mini_bands') ? equipment.filter(item => item !== 'resistance_bands') : equipment;
 }

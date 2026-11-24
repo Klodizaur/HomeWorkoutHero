@@ -13,25 +13,54 @@ import {
   ArrowUpIcon,
   NoSymbolIcon,
   ShieldCheckIcon,
+  MusicalNoteIcon,
+  ArrowTrendingUpIcon,
+  HandRaisedIcon,
+  MapPinIcon,
+  StarIcon,
+  CloudIcon,
+  FaceSmileIcon,
+  SpeakerXMarkIcon,
+  ComputerDesktopIcon,
+  UserPlusIcon,
+  UserGroupIcon,
+  TagIcon,
+  ClockIcon,
+  ArrowPathIcon,
+  ArrowUpCircleIcon,
+  ForwardIcon,
+  ArrowPathRoundedSquareIcon,
+  FlagIcon,
+  UsersIcon,
 } from '@heroicons/react/24/outline';
 
+/**
+ * Training types come in three kinds, shown as separate groups wherever they
+ * are picked: what the workout is, a part of a session, and who or what it
+ * suits. They are stored together on a video (mirrors server/src/tags.ts).
+ */
+export const TRAINING_TYPE_GROUPS = {
+  type: ['HIIT', 'Tabata', 'Circuit', 'Cardio', 'Dance', 'Aerobics', 'Boxing', 'Walking', 'Treadmill', 'Indoor Cycling', 'Strength', 'Functional Strength Training', 'Calisthenics', 'Pilates', 'Barre', 'Yoga', 'Mobility', 'Stretching', 'Body & Mind', 'Kids'],
+  part: ['Warmup', 'Finisher', 'Cooldown'],
+  suits: ['Standing', 'No Jumping', 'Quiet', 'Seated', 'Period-Friendly', 'Prenatal', 'Postnatal', 'Seniors'],
+} as const;
+export type TrainingTypeGroup = keyof typeof TRAINING_TYPE_GROUPS;
+
 export const TRAINING_TYPES = [
-  'HIIT',
-  'Cardio',
-  'Strength',
-  'Mobility',
-  'Yoga',
-  'Pilates',
-  'Functional Strength Training',
-  'Warmup',
-  'Cooldown',
-  'Stretching',
-  'Standing',
-  'No Jumping',
-  'Period-Friendly',
+  ...TRAINING_TYPE_GROUPS.type,
+  ...TRAINING_TYPE_GROUPS.part,
+  ...TRAINING_TYPE_GROUPS.suits,
 ] as const;
-export const BODY_PARTS = ['full_body','upper_body','lower_body','core','back','legs','arms','shoulders','glutes','chest'] as const;
+export const BODY_PARTS = ['full_body','upper_body','lower_body','core','back','legs','arms','shoulders','glutes','chest','hips','pelvic_floor','neck'] as const;
 export const INTENSITIES = ['low','medium','high'] as const;
+export const LEVELS = ['beginner','intermediate','advanced','all'] as const;
+
+/** Which group a training type is shown in. Custom tags sit with the workout types. */
+export function trainingTypeGroup(value: string): TrainingTypeGroup {
+  if ((TRAINING_TYPE_GROUPS.part as readonly string[]).includes(value)) return 'part';
+  if ((TRAINING_TYPE_GROUPS.suits as readonly string[]).includes(value)) return 'suits';
+  return 'type';
+}
 
 export function TrainingTypeIcon({ type }: { type: string }) {
   switch (type) {
@@ -61,8 +90,45 @@ export function TrainingTypeIcon({ type }: { type: string }) {
       return <NoSymbolIcon style={{ width: 18, height: 18 }} />;
     case 'Period-Friendly':
       return <ShieldCheckIcon style={{ width: 18, height: 18 }} />;
+    case 'Tabata':
+      return <ClockIcon style={{ width: 18, height: 18 }} />;
+    case 'Circuit':
+      return <ArrowPathIcon style={{ width: 18, height: 18 }} />;
+    case 'Calisthenics':
+      return <ArrowUpCircleIcon style={{ width: 18, height: 18 }} />;
+    case 'Treadmill':
+      return <ForwardIcon style={{ width: 18, height: 18 }} />;
+    case 'Indoor Cycling':
+      return <ArrowPathRoundedSquareIcon style={{ width: 18, height: 18 }} />;
+    case 'Finisher':
+      return <FlagIcon style={{ width: 18, height: 18 }} />;
+    case 'Seniors':
+      return <UsersIcon style={{ width: 18, height: 18 }} />;
+    case 'Dance':
+      return <MusicalNoteIcon style={{ width: 18, height: 18 }} />;
+    case 'Aerobics':
+      return <ArrowTrendingUpIcon style={{ width: 18, height: 18 }} />;
+    case 'Boxing':
+      return <HandRaisedIcon style={{ width: 18, height: 18 }} />;
+    case 'Walking':
+      return <MapPinIcon style={{ width: 18, height: 18 }} />;
+    case 'Barre':
+      return <StarIcon style={{ width: 18, height: 18 }} />;
+    case 'Body & Mind':
+      return <CloudIcon style={{ width: 18, height: 18 }} />;
+    case 'Kids':
+      return <FaceSmileIcon style={{ width: 18, height: 18 }} />;
+    case 'Quiet':
+      return <SpeakerXMarkIcon style={{ width: 18, height: 18 }} />;
+    case 'Seated':
+      return <ComputerDesktopIcon style={{ width: 18, height: 18 }} />;
+    case 'Prenatal':
+      return <UserPlusIcon style={{ width: 18, height: 18 }} />;
+    case 'Postnatal':
+      return <UserGroupIcon style={{ width: 18, height: 18 }} />;
     default:
-      return null;
+      // A tag someone added themselves.
+      return <TagIcon style={{ width: 18, height: 18 }} />;
   }
 }
 
@@ -138,6 +204,9 @@ const BODY_HIGHLIGHTS: Record<string, React.ReactNode> = {
   ),
   legs: <path d="M10.1 15.6 9.2 22M13.9 15.6 14.8 22" {...limb} />,
   arms: <path d="M8.4 9.4 5.6 15.4M15.6 9.4 18.4 15.4" {...limb} />,
+  hips: <rect x="7.6" y="13.4" width="8.8" height="2.6" rx="1.2" fill="currentColor" />,
+  pelvic_floor: <path d="M10 15.2h4l-0.8 1.6h-2.4z" fill="currentColor" />,
+  neck: <rect x="10.6" y="6.6" width="2.8" height="3" rx="1" fill="currentColor" />,
   shoulders: (
     <>
       <path d="M8.4 9.4h7.2" {...limb} />
@@ -186,5 +255,5 @@ export function IntensityIcon({ level }: { level: string }) {
 }
 
 export function prettyLabel(s: string) {
-  return s.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase());
+  return s.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 }

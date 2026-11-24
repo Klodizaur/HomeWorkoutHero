@@ -470,3 +470,9 @@
   .dash-recent { margin: 0 -16px; padding: 0 16px 2px; }
   .dash-recent-item { width: 150px; }
 }
+
+/* A note day in Upcoming: its text, no thumbnails. */
+.dash-up-note { display: flex; align-items: center; gap: 8px; padding: 6px 0; font-size: 14px; font-weight: 600; }
+.dash-up-note svg { flex-shrink: 0; color: var(--t-accent); }
+.dash-up-note-min { margin-left: auto; flex-shrink: 0; font-size: 13px; font-weight: 600; color: var(--t-ink-muted); }
+.dash-note-min { display: inline-flex; align-items: center; gap: 4px; color: var(--t-ink-muted); font-weight: 600; }

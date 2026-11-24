@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   Bold, Check, Code, Heading, Italic, Link as LinkIcon, List, ListOrdered, Quote, Sparkles, Strikethrough,
-  SignalHigh, SignalLow, SignalMedium,
+  SignalHigh, SignalLow, SignalMedium, X,
 } from 'lucide-react';
-import { EQUIPMENT_ITEMS } from '../lib/equipment';
-import { BODY_PARTS, TRAINING_TYPES } from '../lib/metadata';
+import { LEVELS, trainingTypeGroup, TRAINING_TYPE_GROUPS } from '../lib/metadata';
+import { removeTag, TagKind, useTagCatalog } from '../lib/tagCatalog';
+import { confirmDialog } from '../lib/confirm';
+import TagAdder from './TagAdder';
 import { useMetaLabels } from '../lib/labels';
 import { useAiAvailable } from '../lib/useAiAvailable';
 import { useTranslation } from 'react-i18next';
@@ -33,6 +35,8 @@ export function VideoEditForm({ video, onCancel, onSaved }: { video: Video; onCa
   const [trainingType, setTrainingType] = useState<string[]>(video.training_type || []);
   const [bodyParts, setBodyParts] = useState<string[]>(video.body_parts || []);
   const [intensity, setIntensity] = useState<string>(video.intensity || '');
+  const [level, setLevel] = useState<string>(video.level || '');
+  const catalog = useTagCatalog();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const labels = useMetaLabels();
@@ -53,6 +57,7 @@ export function VideoEditForm({ video, onCancel, onSaved }: { video: Video; onCa
     setTrainingType(video.training_type || []);
     setBodyParts(video.body_parts || []);
     setIntensity(video.intensity || '');
+    setLevel(video.level || '');
   }, [video]);
 
   // Restore the caret/selection after a formatting action mutates the value.
@@ -143,7 +148,7 @@ export function VideoEditForm({ video, onCancel, onSaved }: { video: Video; onCa
       const res = await fetch(`/api/library/videos/${video.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ description, equipment, training_type: trainingType, body_parts: bodyParts, intensity }),
+        body: JSON.stringify({ description, equipment, training_type: trainingType, body_parts: bodyParts, intensity, level }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to save');
@@ -170,9 +175,58 @@ export function VideoEditForm({ video, onCancel, onSaved }: { video: Video; onCa
     { title: t('editor.link'), Icon: LinkIcon, run: insertLink },
   ];
 
+  /**
+   * Delete a tag someone added, everywhere. It's shared and on other videos
+   * too, so this asks first; built-in tags have no delete.
+   */
+  const deleteCustom = async (kind: TagKind, value: string, selected: string[], set: (next: string[]) => void) => {
+    const ok = await confirmDialog({
+      title: t('tags.delete_title', { name: value }),
+      message: t('tags.delete_message'),
+      confirmLabel: t('tags.delete'),
+      danger: true,
+    });
+    if (!ok) return;
+    const removed = await removeTag(kind, value);
+    if (removed !== null) set(selected.filter(v => v !== value));
+  };
+
+  const chips = (
+    category: 'gear' | 'type' | 'body',
+    kind: TagKind,
+    items: { value: string; label: string }[],
+    selected: string[],
+    set: (next: string[]) => void
+  ) => items.map(item => {
+    const on = selected.includes(item.value);
+    const chip = (
+      <button key={item.value} type="button" className={`md-chip md-chip--${category}${on ? ' is-on' : ''}`} aria-pressed={on} onClick={() => set(toggle(selected, item.value))}>
+        {on && <Check size={14} />}
+        {item.label}
+      </button>
+    );
+    if (!catalog.custom[kind].includes(item.value)) return chip;
+    // A tag someone added: the same chip, plus a small × to delete it.
+    return (
+      <span key={item.value} className="md-chip-custom">
+        {chip}
+        <button
+          type="button"
+          className="md-chip-delete"
+          title={t('tags.delete_title', { name: item.value })}
+          aria-label={t('tags.delete_title', { name: item.value })}
+          onClick={() => void deleteCustom(kind, item.value, selected, set)}
+        >
+          <X size={12} />
+        </button>
+      </span>
+    );
+  });
+
   const chipGroup = (
     label: string,
     category: 'gear' | 'type' | 'body',
+    kind: TagKind,
     items: { value: string; label: string }[],
     selected: string[],
     set: (next: string[]) => void
@@ -183,18 +237,19 @@ export function VideoEditForm({ video, onCancel, onSaved }: { video: Video; onCa
         {selected.length > 0 && <div className="md-count">{t('editor.n_selected', { count: selected.length })}</div>}
       </div>
       <div className="md-chips">
-        {items.map(item => {
-          const on = selected.includes(item.value);
-          return (
-            <button key={item.value} type="button" className={`md-chip md-chip--${category}${on ? ' is-on' : ''}`} aria-pressed={on} onClick={() => set(toggle(selected, item.value))}>
-              {on && <Check size={14} />}
-              {item.label}
-            </button>
-          );
-        })}
+        {chips(category, kind, items, selected, set)}
+        {/* A new tag is picked for this video straight away. */}
+        <TagAdder kind={kind} onAdded={value => set(selected.includes(value) ? selected : [...selected, value])} />
       </div>
     </div>
   );
+
+  // Training types in their three groups, with tags people added among the
+  // workout types.
+  const typeGroups = (Object.keys(TRAINING_TYPE_GROUPS) as (keyof typeof TRAINING_TYPE_GROUPS)[]).map(group => ({
+    group,
+    items: catalog.trainingTypes.filter(v => trainingTypeGroup(v) === group).map(v => ({ value: v, label: labels.trainingType(v) })),
+  }));
 
   return (
     <>
@@ -251,9 +306,27 @@ export function VideoEditForm({ video, onCancel, onSaved }: { video: Video; onCa
           <div className="md-help">{t('editor.markdown_hint')}</div>
         </div>
 
-        {chipGroup(labels.sections.equipment, 'gear', EQUIPMENT_ITEMS.map(i => ({ value: i.id, label: labels.equipment(i.id) })), equipment, setEquipment)}
-        {chipGroup(labels.sections.trainingType, 'type', [...TRAINING_TYPES].map(v => ({ value: v, label: labels.trainingType(v) })), trainingType, setTrainingType)}
-        {chipGroup(labels.sections.bodyParts, 'body', [...BODY_PARTS].map(v => ({ value: v, label: labels.bodyPart(v) })), bodyParts, setBodyParts)}
+        {chipGroup(labels.sections.equipment, 'gear', 'equipment', catalog.equipment.map(id => ({ value: id, label: labels.equipment(id) })), equipment, setEquipment)}
+
+        <div className="md-group">
+          <div className="md-group-head">
+            <div className="md-label">{labels.sections.trainingType}</div>
+            {trainingType.length > 0 && <div className="md-count">{t('editor.n_selected', { count: trainingType.length })}</div>}
+          </div>
+          {typeGroups.map(({ group, items }) => (
+            <div key={group} className="md-subgroup">
+              <div className="md-sublabel">{labels.typeGroup(group)}</div>
+              <div className="md-chips">
+                {chips('type', 'training_type', items, trainingType, setTrainingType)}
+                {group === 'type' && (
+                  <TagAdder kind="training_type" onAdded={value => setTrainingType(trainingType.includes(value) ? trainingType : [...trainingType, value])} />
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {chipGroup(labels.sections.bodyParts, 'body', 'body_part', catalog.bodyParts.map(v => ({ value: v, label: labels.bodyPart(v) })), bodyParts, setBodyParts)}
 
         <div className="md-group">
           <div className="md-label">{labels.sections.intensity}</div>
@@ -267,6 +340,17 @@ export function VideoEditForm({ video, onCancel, onSaved }: { video: Video; onCa
                 </button>
               );
             })}
+          </div>
+        </div>
+
+        <div className="md-group">
+          <div className="md-label">{labels.sections.level}</div>
+          <div className="rx-seg md-seg--wide md-seg--wrap">
+            {LEVELS.map(value => (
+              <button key={value} type="button" className={level === value ? 'is-on' : ''} onClick={() => setLevel(level === value ? '' : value)}>
+                {labels.level(value)}
+              </button>
+            ))}
           </div>
         </div>
 

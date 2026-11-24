@@ -92,3 +92,6 @@
   .pp-foot { padding: 12px 16px 24px; }
   .pp-foot-btn--primary { flex: 1 1 100%; }
 }
+
+/* A note (placeholder) day: an icon instead of a thumbnail. */
+.pp-thumb--note { display: flex; align-items: center; justify-content: center; color: var(--t-accent); background: var(--t-tint); }

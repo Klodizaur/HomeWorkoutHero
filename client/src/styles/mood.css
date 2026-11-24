@@ -1,0 +1,64 @@
+/* Mood: five line-drawn faces. Quiet until picked; the picked one takes the accent. */
+
+.mood-picker { display: flex; align-items: center; gap: 2px; }
+.mood-face {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: none;
+  color: var(--t-ink-muted);
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s, transform 0.15s;
+}
+.mood-picker--sm .mood-face { width: 32px; height: 32px; }
+.mood-face:hover:not(:disabled) { background: var(--t-tint); color: var(--t-ink); }
+.mood-face:active:not(:disabled) { transform: scale(0.92); }
+.mood-face:focus-visible { outline: 2px solid var(--t-accent); outline-offset: 1px; }
+.mood-face.is-on { background: var(--t-accent); color: #FFFFFF; }
+.mood-face:disabled { cursor: default; }
+
+.mood-badge { display: inline-flex; line-height: 0; }
+
+/* A labelled row (Before / After) in the Log and the add-entry form. */
+.mood-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.mood-row-label { min-width: 48px; font-size: 13px; font-weight: 600; color: var(--t-ink-muted); }
+
+/* --- Breakdown: workouts and your mood ------------------------------------------ */
+.mood-sum-head { margin: 0; font-size: 15px; line-height: 1.45; color: var(--t-ink-muted); }
+.mood-sum-head strong { color: var(--t-ink); font-weight: 700; }
+.mood-sum-bar { display: flex; gap: 3px; height: 10px; border-radius: 5px; overflow: hidden; background: var(--t-tint); }
+.mood-sum-bar span { display: block; height: 100%; }
+.mood-sum-bar .is-better, .mood-sum-legend i.is-better { background: var(--t-success); }
+.mood-sum-bar .is-same, .mood-sum-legend i.is-same { background: var(--t-ink-faint); }
+.mood-sum-bar .is-worse, .mood-sum-legend i.is-worse { background: var(--t-danger); }
+.mood-sum-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: -6px; font-size: 13px; color: var(--t-ink-muted); }
+.mood-sum-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.mood-sum-legend i { width: 8px; height: 8px; border-radius: 50%; }
+.mood-sum-facts { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 12px 14px; border-radius: 14px; background: var(--t-tint); }
+.mood-sum-facts div { display: flex; flex-wrap: wrap; gap: 2px 8px; font-size: 14px; line-height: 1.4; }
+.mood-sum-facts dt { font-weight: 700; }
+.mood-sum-facts dd { margin: 0; color: var(--t-ink-muted); }
+.mood-sum-note { margin: 0; font-size: 13px; line-height: 1.45; color: var(--t-ink-muted); }
+
+/* --- "What made it rough?" ------------------------------------------------------ */
+.mood-reasons { display: flex; flex-direction: column; gap: 8px; }
+.mood-reason { display: flex; align-items: center; min-height: 48px; padding: 0 16px; border: 1px solid var(--t-border); border-radius: 14px; background: var(--t-surface); color: var(--t-ink); font-family: inherit; font-size: 15px; font-weight: 600; text-align: left; cursor: pointer; transition: background-color 0.15s, border-color 0.15s; }
+.mood-reason:hover:not(:disabled) { border-color: var(--t-accent); background: var(--t-tint); }
+.mood-reason:focus-visible { outline: 2px solid var(--t-accent); outline-offset: 2px; }
+.mood-reason:disabled { opacity: 0.6; cursor: default; }
+.mood-reason-error { margin: 0; font-size: 13px; color: var(--t-danger); }
+.mood-reason-picked { margin: 0; font-size: 14px; color: var(--t-ink-muted); }
+.mood-hints { display: flex; flex-direction: column; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.mood-hints li { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: 14px; background: var(--t-tint); font-size: 15px; line-height: 1.45; }
+.mood-hints li svg { flex-shrink: 0; margin-top: 2px; color: var(--t-accent); }
+.mood-shorter { display: flex; flex-direction: column; gap: 6px; }
+.mood-shorter-label { font-size: 13px; font-weight: 700; color: var(--t-ink-muted); }
+.mood-shorter-item { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 14px; border: 1px solid var(--t-border); border-radius: 12px; background: var(--t-surface); color: var(--t-ink); font-family: inherit; font-size: 14px; text-align: left; cursor: pointer; }
+.mood-shorter-item:hover { border-color: var(--t-accent); }
+.mood-shorter-name { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
+.mood-shorter-len { flex-shrink: 0; font-size: 13px; color: var(--t-ink-muted); }

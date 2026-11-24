@@ -1,8 +1,8 @@
 import { createPortal } from 'react-dom';
 import { Check, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { EQUIPMENT_ITEMS } from '../../lib/equipment';
-import { BODY_PARTS, INTENSITIES, TRAINING_TYPES } from '../../lib/metadata';
+import { INTENSITIES, LEVELS, trainingTypeGroup, TRAINING_TYPE_GROUPS } from '../../lib/metadata';
+import { useTagCatalog } from '../../lib/tagCatalog';
 import { useMetaLabels } from '../../lib/labels';
 import { LengthRange, MatchMode } from '../../lib/filters';
 import LengthFilter from './LengthFilter';
@@ -19,6 +19,9 @@ interface Props {
   onBodyParts: (next: string[]) => void;
   intensity: string[];
   onIntensity: (next: string[]) => void;
+  /** Levels to keep. Optional so screens without the filter still work. */
+  level?: string[];
+  onLevel?: (next: string[]) => void;
   length: LengthRange;
   onLength: (next: LengthRange) => void;
   matchMode: MatchMode;
@@ -42,6 +45,7 @@ const toggle = (list: string[], value: string) =>
 export default function FiltersSheet(props: Props) {
   const { t } = useTranslation();
   const labels = useMetaLabels();
+  const catalog = useTagCatalog();
   if (!props.open) return null;
 
   const groups: {
@@ -57,7 +61,7 @@ export default function FiltersSheet(props: Props) {
       key: 'equipment',
       label: labels.sections.equipment,
       category: 'gear',
-      items: EQUIPMENT_ITEMS.map(item => ({ value: item.id, label: labels.equipment(item.id) })),
+      items: catalog.equipment.map(id => ({ value: id, label: labels.equipment(id) })),
       selected: props.equipment,
       onToggle: v => props.onEquipment(toggle(props.equipment, v)),
       hasMatch: true,
@@ -66,7 +70,11 @@ export default function FiltersSheet(props: Props) {
       key: 'type',
       label: labels.sections.trainingType,
       category: 'type',
-      items: [...TRAINING_TYPES].map(v => ({ value: v, label: labels.trainingType(v) })),
+      // Grouped the same way as everywhere they're picked: workout type,
+      // session part, then who it suits.
+      items: (Object.keys(TRAINING_TYPE_GROUPS) as (keyof typeof TRAINING_TYPE_GROUPS)[])
+        .flatMap(group => catalog.trainingTypes.filter(v => trainingTypeGroup(v) === group))
+        .map(v => ({ value: v, label: labels.trainingType(v) })),
       selected: props.trainingType,
       onToggle: v => props.onTrainingType(toggle(props.trainingType, v)),
     },
@@ -74,7 +82,7 @@ export default function FiltersSheet(props: Props) {
       key: 'body',
       label: labels.sections.bodyParts,
       category: 'body',
-      items: [...BODY_PARTS].map(v => ({ value: v, label: labels.bodyPart(v) })),
+      items: catalog.bodyParts.map(v => ({ value: v, label: labels.bodyPart(v) })),
       selected: props.bodyParts,
       onToggle: v => props.onBodyParts(toggle(props.bodyParts, v)),
     },
@@ -86,6 +94,14 @@ export default function FiltersSheet(props: Props) {
       selected: props.intensity,
       onToggle: v => props.onIntensity(toggle(props.intensity, v)),
     },
+    ...(props.level && props.onLevel ? [{
+      key: 'level',
+      label: labels.sections.level,
+      category: 'intensity' as TagCategory,
+      items: [...LEVELS].map(v => ({ value: v, label: labels.level(v) })),
+      selected: props.level,
+      onToggle: (v: string) => props.onLevel!(toggle(props.level!, v)),
+    }] : []),
   ];
 
   return createPortal(

@@ -1,4 +1,5 @@
 import { FastifyInstance } from 'fastify';
+import { parseMinutes } from '../minutes.js';
 import db from '../db.js';
 import { logVideoResolver } from './library.js';
 import { ownsWorkout, profileHook, PROFILE_VIDEOS } from '../profiles.js';
@@ -11,6 +12,18 @@ function parseJsonArray(value: unknown): string[] {
   } catch {
     return [];
   }
+}
+
+/** A mood on the 1 (awful) to 5 (great) scale, or null for "not given". */
+export function parseMood(value: unknown): number | null {
+  const n = Number(value);
+  return value !== null && value !== undefined && value !== '' && Number.isInteger(n) && n >= 1 && n <= 5 ? n : null;
+}
+
+/** Why a workout felt rough, as picked after a low mood. */
+export const MOOD_REASONS = ['exhausting', 'too_long', 'too_easy', 'pain', 'disliked_video', 'tired_before'] as const;
+export function parseMoodReason(value: unknown): string | null {
+  return typeof value === 'string' && (MOOD_REASONS as readonly string[]).includes(value) ? value : null;
 }
 
 function folderName(row: { relative_path?: string | null; source?: string | null; external_playlist_title?: string | null }): string | null {
@@ -61,7 +74,10 @@ export default async function (fastify: FastifyInstance) {
         l.is_manual,
         l.notes,
         l.loop_count,
-        v.duration_seconds,
+        l.mood_before,
+        l.mood_after,
+        l.mood_reason,
+        COALESCE(v.duration_seconds, l.duration_seconds) AS duration_seconds,
         COALESCE(pv.relative_path, v.relative_path) AS relative_path,
         v.source,
         v.external_playlist_title,
@@ -89,6 +105,10 @@ export default async function (fastify: FastifyInstance) {
       completedAt: r.completed_at,
       isManual: !!r.is_manual,
       notes: r.notes || '',
+      // How the user felt before and after (1–5), when they said.
+      moodBefore: parseMood(r.mood_before),
+      moodAfter: parseMood(r.mood_after),
+      moodReason: parseMoodReason(r.mood_reason),
       // Times through the video when it was logged. Anything below 2 was a
       // single play, which the log shows without a badge.
       loopCount: typeof r.loop_count === 'number' && r.loop_count > 1 ? r.loop_count : null,
@@ -169,6 +189,73 @@ export default async function (fastify: FastifyInstance) {
     return reply.send({ success: true, updated });
   });
 
+  // Set (or clear) how long a logged workout without a video took. Entries with a
+  // video keep that video's runtime, so only their video-less rows are touched.
+  fastify.put('/history/duration', async (request, reply) => {
+    const { ids, minutes } = request.body as { ids?: unknown; minutes?: unknown };
+    if (!Array.isArray(ids) || ids.length === 0 || !ids.every(id => typeof id === 'string')) {
+      return reply.code(400).send({ error: 'ids must be a non-empty array of strings' });
+    }
+    const parsed = parseMinutes(minutes);
+    if (minutes !== null && minutes !== '' && parsed === null) {
+      return reply.code(400).send({ error: 'minutes must be a whole number from 1 to 600, or null' });
+    }
+    const update = db.prepare(
+      'UPDATE workout_log SET duration_seconds = ? WHERE id = ? AND profile_id = ? AND video_id IS NULL'
+    );
+    const updated = db.transaction((entryIds: string[]) =>
+      entryIds.reduce((n, id) => n + update.run(parsed ? parsed * 60 : null, id, request.profileId).changes, 0)
+    )(ids as string[]);
+    return reply.send({ success: true, updated });
+  });
+
+  // Record how the user felt before and/or after a workout. Like notes, the mood is
+  // written to every row of the workout. Address it by entry ids (the Log) or by
+  // workout id (the player, which knows the session, not its log rows).
+  // Only the fields sent are changed; null clears one.
+  fastify.put('/history/mood', async (request, reply) => {
+    const body = (request.body ?? {}) as { ids?: unknown; workoutId?: unknown; moodBefore?: unknown; moodAfter?: unknown; moodReason?: unknown };
+    const sets: string[] = [];
+    const values: (number | string | null)[] = [];
+    for (const [key, col] of [['moodBefore', 'mood_before'], ['moodAfter', 'mood_after']] as const) {
+      if (!(key in body)) continue;
+      const raw = body[key];
+      const mood = parseMood(raw);
+      if (raw !== null && mood === null) {
+        return reply.code(400).send({ error: `${key} must be 1-5 or null` });
+      }
+      sets.push(`${col} = ?`);
+      values.push(mood);
+    }
+    if ('moodReason' in body) {
+      const reason = parseMoodReason(body.moodReason);
+      if (body.moodReason !== null && reason === null) {
+        return reply.code(400).send({ error: `moodReason must be one of ${MOOD_REASONS.join(', ')} or null` });
+      }
+      sets.push('mood_reason = ?');
+      values.push(reason);
+    }
+    if (sets.length === 0) return reply.code(400).send({ error: 'Send moodBefore, moodAfter and/or moodReason' });
+
+    let updated = 0;
+    if (Array.isArray(body.ids)) {
+      if (body.ids.length === 0 || !body.ids.every(id => typeof id === 'string')) {
+        return reply.code(400).send({ error: 'ids must be a non-empty array of strings' });
+      }
+      const update = db.prepare(`UPDATE workout_log SET ${sets.join(', ')} WHERE id = ? AND profile_id = ?`);
+      db.transaction(() => {
+        for (const id of body.ids as string[]) updated += update.run(...values, id, request.profileId).changes;
+      })();
+    } else if (typeof body.workoutId === 'string' && body.workoutId) {
+      updated = db.prepare(`UPDATE workout_log SET ${sets.join(', ')} WHERE workout_id = ? AND profile_id = ?`)
+        .run(...values, body.workoutId, request.profileId).changes;
+    } else {
+      return reply.code(400).send({ error: 'Send ids or a workoutId' });
+    }
+
+    return reply.send({ success: true, updated });
+  });
+
   // Manually log workouts the user did outside the app, for a past-or-today date.
   // Each selected library video becomes its own separate entry (tags read live from
   // the linked video), and a typed name adds one more custom entry that carries the
@@ -183,6 +270,10 @@ export default async function (fastify: FastifyInstance) {
       intensity?: unknown;
       videoIds?: unknown;
       loopCount?: unknown;
+      moodBefore?: unknown;
+      moodAfter?: unknown;
+      /** How long the typed (no-video) workout took. Videos bring their own length. */
+      durationMinutes?: unknown;
     };
 
     const { completedDate } = body;
@@ -247,9 +338,13 @@ export default async function (fastify: FastifyInstance) {
     const insert = db.prepare(`
       INSERT INTO workout_log
         (profile_id, id, workout_id, video_id, plan_name, workout_name, video_filename, thumbnail_path,
-         completed_date, is_manual, training_type, body_parts, intensity, equipment, loop_count)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?)
+         completed_date, is_manual, training_type, body_parts, intensity, equipment, loop_count,
+         mood_before, mood_after, duration_seconds)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
+    const typedMinutes = parseMinutes(body.durationMinutes);
+    const moodBefore = parseMood(body.moodBefore);
+    const moodAfter = parseMood(body.moodAfter);
 
     const workoutIds: string[] = [];
     const create = db.transaction(() => {
@@ -262,14 +357,15 @@ export default async function (fastify: FastifyInstance) {
         insert.run(request.profileId, nanoid(), wid, v.id, null,
           v.filename ? stripExt(v.filename) : (name || null),
           v.filename, v.thumbnail_path, completedDate,
-          null, null, null, null, loopCount);
+          null, null, null, null, loopCount, moodBefore, moodAfter, null);
       }
       // A typed name adds one more separate custom entry carrying the chosen tags.
       if (name) {
         const wid = `manual-${nanoid()}`;
         workoutIds.push(wid);
         insert.run(request.profileId, nanoid(), wid, null, null, name, null, null, completedDate,
-          JSON.stringify(trainingType), JSON.stringify(bodyParts), intensity, JSON.stringify(equipment), null);
+          JSON.stringify(trainingType), JSON.stringify(bodyParts), intensity, JSON.stringify(equipment), null,
+          moodBefore, moodAfter, typedMinutes ? typedMinutes * 60 : null);
       }
     });
     create();

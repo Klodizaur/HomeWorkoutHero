@@ -1,6 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import db from '../db.js';
 import { getProfileSetting, ownsPlan, ownsWorkout, profileHook, PROFILE_VIDEOS } from '../profiles.js';
+import { isPlanComplete } from '../planRuns.js';
 
 // Active plans occupy one of two slots: the main plan (is_active = 1) and an
 // optional second plan (is_active = 2) that runs alongside it. Both are
@@ -16,32 +17,6 @@ function parseTags(raw: string | null): string[] {
   } catch {
     return [];
   }
-}
-
-/**
- * Whether every workout day in a plan is marked done — order irrelevant, since
- * this asks "are any left?", not "was the last one done?".
- *
- * A day counts by the same rule the schedule uses: it has a day-level mark, or
- * all of its videos are marked.
- */
-function isPlanComplete(planId: string): { complete: boolean; workoutCount: number } {
-  const workouts = db.prepare('SELECT id, video_ids FROM workouts WHERE plan_id = ?').all(planId) as any[];
-  if (workouts.length === 0) return { complete: false, workoutCount: 0 };
-
-  const marks = db.prepare(`
-    SELECT workout_id, video_id FROM history
-    WHERE workout_id IN (SELECT id FROM workouts WHERE plan_id = ?)
-  `).all(planId) as any[];
-  const dayMarks = new Set(marks.filter(h => !h.video_id).map(h => h.workout_id));
-  const videoMarks = new Set(marks.filter(h => h.video_id).map(h => `${h.workout_id}:${h.video_id}`));
-
-  const complete = workouts.every(w => {
-    if (dayMarks.has(w.id)) return true;
-    const ids = parseTags(w.video_ids);
-    return ids.length > 0 && ids.every(vid => videoMarks.has(`${w.id}:${vid}`));
-  });
-  return { complete, workoutCount: workouts.length };
 }
 
 /**
@@ -185,7 +160,7 @@ export default async function (fastify: FastifyInstance) {
     const completedVideos = new Set(history.filter(h => h.video_id).map(h => `${h.workout_id}:${h.video_id}`));
 
     const workoutsByPlan = db.prepare(`
-      SELECT w.id, w.plan_id, w.name, w.sequence_order, w.video_ids
+      SELECT w.id, w.plan_id, w.name, w.sequence_order, w.video_ids, w.placeholder, w.placeholder_minutes, w.placeholder_kind
       FROM workouts w
       WHERE w.plan_id IN (${activePlans.map(() => '?').join(', ')})
       ORDER BY w.sequence_order ASC
@@ -240,6 +215,12 @@ export default async function (fastify: FastifyInstance) {
           id: w.id,
           name: w.name,
           sequence_order: w.sequence_order,
+          // Text only, no videos: shown like a note, never opened in the player.
+          placeholder: Boolean(w.placeholder),
+          // A placeholder's planned length, when given.
+          minutes: w.placeholder ? w.placeholder_minutes ?? null : null,
+          // 'placeholder' (videos to come) or 'activity' (a workout of its own).
+          kind: w.placeholder ? (w.placeholder_kind === 'activity' ? 'activity' : 'placeholder') : null,
           videos,
           isCompleted: workoutDone,
           videosCompletedCount: videos.filter((v: any) => v.isCompleted).length,
@@ -256,10 +237,10 @@ export default async function (fastify: FastifyInstance) {
       while (workoutIndex < workouts.length) {
         const dateStr = currentDate.toISOString().split('T')[0];
         const frozenReason = freezeByPlanDate.get(`${plan.id}|${dateStr}`) || null;
-        // A frozen workout day doesn't consume its slot in the sequence — the
-        // workout that would've landed here waits for the next open workout
-        // day instead, so freezing pushes the rest of the plan back rather
-        // than burying that day's workout behind the freeze banner for good.
+        // A frozen day pauses the plan: neither the workout nor the rhythm moves
+        // on, so the day after a freeze picks up exactly where the plan stopped
+        // (the workout due that day, then the rest of the rhythm from there),
+        // instead of landing on whatever the rhythm had planned for that date.
         const isWorkoutDay = pattern[patternIndex] === 1 && !frozenReason;
 
         schedule.push({
@@ -277,7 +258,7 @@ export default async function (fastify: FastifyInstance) {
         // follow the clocks: across a daylight-saving change the day would move
         // by 23 or 25 hours and the date would repeat or skip one.
         currentDate.setUTCDate(currentDate.getUTCDate() + 1);
-        patternIndex = (patternIndex + 1) % pattern.length;
+        if (!frozenReason) patternIndex = (patternIndex + 1) % pattern.length;
       }
 
       return {
@@ -345,7 +326,7 @@ export default async function (fastify: FastifyInstance) {
 
       // Also snapshot a durable workout_log entry. Names are copied in now so the
       // record survives future plan edits/deletes (which wipe `history`).
-      const workout = db.prepare('SELECT name, plan_id FROM workouts WHERE id = ?').get(workoutId) as { name?: string, plan_id?: string } | undefined;
+      const workout = db.prepare('SELECT name, plan_id, placeholder, placeholder_minutes FROM workouts WHERE id = ?').get(workoutId) as { name?: string, plan_id?: string, placeholder?: number, placeholder_minutes?: number | null } | undefined;
       const planName = workout?.plan_id
         ? ((db.prepare('SELECT name FROM workout_plans WHERE id = ?').get(workout.plan_id) as { name?: string } | undefined)?.name ?? null)
         : null;
@@ -370,11 +351,23 @@ export default async function (fastify: FastifyInstance) {
       } else {
         db.prepare('DELETE FROM workout_log WHERE workout_id = ? AND video_id IS NULL AND profile_id = ?').run(workoutId, profileId);
       }
+      // A part marked after the mood was given joins it: mood is per workout.
+      const mood = db.prepare(`
+        SELECT mood_before, mood_after, mood_reason FROM workout_log
+        WHERE workout_id = ? AND profile_id = ? AND (mood_before IS NOT NULL OR mood_after IS NOT NULL OR mood_reason IS NOT NULL)
+        LIMIT 1
+      `).get(workoutId, profileId) as { mood_before: number | null; mood_after: number | null; mood_reason: string | null } | undefined;
+      // A placeholder day has no video to time it: its planned minutes stand in.
+      const durationSeconds = !videoId && workout?.placeholder && workout.placeholder_minutes
+        ? workout.placeholder_minutes * 60
+        : null;
       db.prepare(`
         INSERT INTO workout_log
-          (id, profile_id, workout_id, video_id, plan_name, workout_name, video_filename, thumbnail_path, completed_date, loop_count)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(nanoid(), profileId, workoutId, videoId ?? null, planName, workout?.name ?? null, videoFilename, thumbnailPath, completedDate, loops);
+          (id, profile_id, workout_id, video_id, plan_name, workout_name, video_filename, thumbnail_path, completed_date, loop_count,
+           mood_before, mood_after, mood_reason, duration_seconds)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(nanoid(), profileId, workoutId, videoId ?? null, planName, workout?.name ?? null, videoFilename, thumbnailPath, completedDate, loops,
+        mood?.mood_before ?? null, mood?.mood_after ?? null, mood?.mood_reason ?? null, durationSeconds);
 
       // Did that leave the plan with nothing outstanding?
       if (workout?.plan_id) await syncPlanCompletion(workout.plan_id, completedDate);

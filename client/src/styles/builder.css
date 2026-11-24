@@ -817,3 +817,37 @@
   .pb-details { padding: 20px 16px 40px; }
   .pb-schedule { grid-template-columns: minmax(0, 1fr); }
   .pb-days { border-right: none; padding: 14px 16px 40px; }}
+/* A placeholder day: a note that holds the day's place until it has videos.
+   Asked for with a quiet link; once open it's one row with an × to drop it. */
+.pb-daynote-link { align-self: center; display: inline-flex; align-items: center; gap: 6px; margin-top: 8px; padding: 4px 8px; border: none; border-radius: 8px; background: none; color: var(--t-ink-muted); font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.pb-daynote-link:hover { color: var(--t-accent); background: var(--t-tint); }
+.pb-daynote { display: flex; align-items: center; gap: 8px; height: 46px; padding: 0 6px 0 12px; border: 1px solid var(--t-border); border-radius: 12px; background: var(--t-surface); color: var(--t-accent); }
+.pb-daynote:focus-within { border-color: var(--t-accent); }
+.pb-daynote input { flex: 1; min-width: 0; height: 100%; border: none; outline: none; background: none; color: var(--t-ink); font: inherit; font-size: 15px; }
+.pb-daynote input::placeholder { color: var(--t-ink-faint); }
+.pb-daynote-clear { width: 32px; height: 32px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; padding: 0; border: none; border-radius: 8px; background: none; color: var(--t-ink-muted); cursor: pointer; }
+.pb-daynote-clear:hover { background: var(--t-tint); color: var(--t-ink); }
+/* Editing a text day: what kind it is, over the text row. */
+.pb-daynote-edit { display: flex; flex-direction: column; gap: 8px; }
+.pb-daynote-kind { align-self: flex-start; }
+.pb-daynote-kind button { padding: 0 14px; font-size: 13px; }
+.pb-item--note.is-activity .pb-note-thumb { background: var(--t-tint); color: var(--t-accent); }
+.pb-daynote-min { display: flex; align-items: center; gap: 3px; flex-shrink: 0; height: 32px; padding: 0 8px; border-radius: 8px; background: var(--t-tint); color: var(--t-ink-muted); font-size: 12px; font-weight: 600; cursor: text; }
+.pb-daynote .pb-daynote-min input { width: 30px; flex: none; height: 100%; text-align: right; font-size: 14px; font-weight: 600; -moz-appearance: textfield; }
+.pb-daynote-min input::-webkit-outer-spin-button, .pb-daynote-min input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.pb-daynote-save { width: 32px; height: 32px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; padding: 0; border: none; border-radius: 8px; background: var(--t-btn); color: var(--t-on-btn); cursor: pointer; }
+.pb-daynote-save:disabled { background: var(--t-tint); color: var(--t-ink-faint); cursor: default; }
+/* A kept placeholder: a row like a video's, a note tile in place of the thumbnail. */
+.pb-item--note { padding-left: 6px; }
+.pb-note-body { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; padding: 0; border: none; background: none; color: var(--t-ink); font: inherit; text-align: left; cursor: pointer; }
+.pb-note-thumb { display: flex; align-items: center; justify-content: center; background: var(--t-accent-soft); color: var(--t-ink); }
+.pb-note-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.pb-note-kicker { font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--t-accent); }
+.pb-note-edit { width: 36px; height: 36px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; padding: 0; border: none; border-radius: 8px; background: none; color: var(--t-ink-muted); cursor: pointer; }
+.pb-note-edit:hover { background: var(--t-tint); color: var(--t-ink); }
+
+/* The rhythm note above the days, closable once read. */
+.pb-note--closable { display: flex; align-items: flex-start; gap: 8px; }
+.pb-note--closable span { flex: 1; min-width: 0; }
+.pb-note-close { width: 24px; height: 24px; flex-shrink: 0; margin: -2px -4px -2px 0; display: flex; align-items: center; justify-content: center; padding: 0; border: none; border-radius: 6px; background: none; color: inherit; opacity: 0.7; cursor: pointer; }
+.pb-note-close:hover { opacity: 1; background: var(--t-tint); }

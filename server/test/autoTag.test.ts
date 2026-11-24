@@ -30,6 +30,20 @@ describe('autoTagFromTitle', () => {
     expect(autoTagFromTitle('ŁAGODNY STRETCHING').intensity).toBe('low');
   });
 
+  it('reads the newer tags', () => {
+    expect(autoTagFromTitle('SZYBKA TABATA 2 x 4 MINUTY').training_type).toEqual(['HIIT', 'Tabata']);
+    expect(autoTagFromTitle('NEW HALLOWEEN Zumba | Halloween Dance Workout').training_type).toEqual(['Dance']);
+    expect(autoTagFromTitle('Zadbaj o kręgosłup dziecka').training_type).toEqual(['Kids']);
+    expect(autoTagFromTitle('Szybki trening mięśni dna miednicy').body_parts).toEqual(['pelvic_floor']);
+    expect(autoTagFromTitle('Trening z kółkiem do brzucha').equipment).toEqual(['ab_roller']);
+    expect(autoTagFromTitle('Trening na rowerze stacjonarnym').equipment).toEqual(['exercise_bike']);
+    // "Rowerki" are an ab exercise, not a bike.
+    expect(autoTagFromTitle('Rowerki na brzuch').equipment).toEqual([]);
+    expect(autoTagFromTitle('Trening obwodowy dla seniorów').training_type).toEqual(['Circuit', 'Seniors']);
+    // The specific band wins over the generic one.
+    expect(autoTagFromTitle('Trening z mini gumą na pośladki').equipment).toEqual(['mini_bands']);
+  });
+
   it('matches stems across Polish inflection', () => {
     for (const title of ['Hantle', 'Trening z hantlami', 'Ćwiczenia z hantelkami']) {
       expect(autoTagFromTitle(title).equipment, title).toEqual(['dumbbells']);

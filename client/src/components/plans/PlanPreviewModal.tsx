@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Calendar, Check, ChevronLeft, ChevronRight, Copy, LayoutGrid, List, Pencil, Play, Trash2, Upload, X } from 'lucide-react';
+import { NoteIcon } from '../calendar/NoteDay';
 import { isTv } from '../../lib/tv';
 import Modal from '../modal/Modal';
 import { TagRow } from '../library/LibraryCards';
@@ -14,6 +15,12 @@ export interface PreviewDay {
   id: string;
   name: string;
   sequence_order: number;
+  /** A text-only day: its name is the note, it has no videos. */
+  placeholder?: boolean;
+  /** A placeholder's planned length in minutes, when given. */
+  minutes?: number | null;
+  /** What a text day is: videos still to come, or an activity of its own. */
+  kind?: 'placeholder' | 'activity' | null;
   videos: Video[];
 }
 
@@ -52,17 +59,19 @@ function DayMedia({ day, index, done, list }: { day: PreviewDay; index: number; 
   const [i, setI] = useState(0);
   const videos = day.videos;
   const cur = videos[Math.min(i, Math.max(videos.length - 1, 0))];
-  const dur = formatDuration(cur?.duration_seconds);
+  const dur = day.placeholder
+    ? (day.minutes ? t('calendar.note_minutes', { count: day.minutes }) : null)
+    : formatDuration(cur?.duration_seconds);
   const step = (delta: number) => (e: React.MouseEvent) => {
     e.stopPropagation();
     setI(p => (p + delta + videos.length) % videos.length);
   };
   const tags = cur ? tagsFor(cur) : [];
-  const title = cur ? stripVideoExt(cur.filename) : '';
+  const title = day.placeholder ? day.name : cur ? stripVideoExt(cur.filename) : '';
 
   const thumb = (
-    <div className="pp-thumb">
-      {cur?.thumbnail_path ? <img src={`/thumbnails/${cur.thumbnail_path}`} alt="" loading="lazy" /> : null}
+    <div className={`pp-thumb${day.placeholder ? ' pp-thumb--note' : ''}`}>
+      {day.placeholder ? <NoteIcon kind={day.kind} size={22} /> : cur?.thumbnail_path ? <img src={`/thumbnails/${cur.thumbnail_path}`} alt="" loading="lazy" /> : null}
       {!list && (
         <span className={`pp-daybadge${done ? ' is-done' : ''}`}>
           {done && <Check size={12} />}{t('plans.details_day_n', { n: index + 1 })}
@@ -116,7 +125,7 @@ export default function PlanPreviewModal(props: Props) {
   );
 
   const hours = (ds: PreviewDay[]) => {
-    const secs = ds.reduce((sum, d) => sum + d.videos.reduce((s, v) => s + (v.duration_seconds || 0), 0), 0);
+    const secs = ds.reduce((sum, d) => sum + (d.placeholder ? (d.minutes || 0) * 60 : 0) + d.videos.reduce((s, v) => s + (v.duration_seconds || 0), 0), 0);
     return Math.round((secs / 3600) * 10) / 10;
   };
   const started = new Date(`${startDate}T12:00`).toLocaleDateString(i18n.language, { weekday: 'short', day: 'numeric', month: 'short' });

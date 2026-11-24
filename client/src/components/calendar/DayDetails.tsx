@@ -5,6 +5,7 @@ import { Check, CircleAlert, Clock, Moon, Play, Snowflake, Sun, X } from 'lucide
 import { useMetaLabels } from '../../lib/labels';
 import { TagRow } from '../library/LibraryCards';
 import { PlanSchedule, nextWorkoutAfter, parseDay, scheduleVideoTags, workoutState } from './calendarModel';
+import { NoteEntry } from './NoteDay';
 
 interface Props {
   date: string;
@@ -15,10 +16,12 @@ interface Props {
   onFreeze: (planId: string, date: string) => void;
   onUnfreeze: (planId: string, date: string) => void;
   busyKey: string | null;
+  /** Marks a note (placeholder) day done or not, then refreshes. */
+  onToggleNote?: (workoutId: string) => Promise<unknown> | void;
 }
 
 /** A day's details: a bottom sheet on a phone, a centred card on desktop. One card per plan. */
-export default function DayDetails({ date, plans, today, onClose, onOpen, onFreeze, onUnfreeze, busyKey }: Props) {
+export default function DayDetails({ date, plans, today, onClose, onOpen, onFreeze, onUnfreeze, busyKey , onToggleNote}: Props) {
   const { t, i18n } = useTranslation();
   const labels = useMetaLabels();
 
@@ -76,6 +79,16 @@ export default function DayDetails({ date, plans, today, onClose, onOpen, onFree
                       </button>
                     )}
                   </div>
+                </div>
+              );
+            }
+
+            if (day.workout.placeholder) {
+              const w = day.workout;
+              return (
+                <div key={key} className="cal-sd-card">
+                  <div className="cal-sd-plan">{badge}<span className="cal-sd-plan-name">{plan.planName}</span></div>
+                  <NoteEntry text={w.name} done={Boolean(w.isCompleted)} minutes={w.minutes} kind={w.kind} onToggle={onToggleNote ? () => onToggleNote(w.id) : undefined} />
                 </div>
               );
             }
