@@ -319,6 +319,9 @@
 @keyframes ai-spin { to { transform: rotate(360deg); } }
 .ai-gen-title { font-size: 18px; font-weight: 700; }
 .ai-gen-note { max-width: 320px; font-size: 14px; color: var(--t-ink-muted); }
+.ai-gen-line { max-width: 320px; min-height: 2.8em; font-size: 16px; font-weight: 600; color: var(--t-ink); animation: ai-line-in 0.35s ease-out; }
+@keyframes ai-line-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .ai-gen-line { animation: none; } }
 
 /* Draft ready */
 .ai-party { color: var(--t-accent); }
@@ -400,3 +403,11 @@
   .ai-album-seg button span { display: none; }
   .ai-summary-k { width: 92px; }
 }
+
+/* Training types in their groups, and the level choice under intensity. */
+.ai-chip-group { display: flex; flex-direction: column; gap: 8px; }
+.ai-chip-group + .ai-chip-group { margin-top: 6px; }
+.ai-chip-group-label { font-size: 13px; font-weight: 600; color: var(--t-ink-muted); }
+.ai-q--sub { margin-top: 18px; font-size: 18px; }
+.ai-level-seg { display: flex; flex-wrap: wrap; width: 100%; padding: 4px; border-radius: 14px; }
+.ai-level-seg button { flex: 1 1 auto; height: 40px; border-radius: 11px; font-size: 14px; padding: 0 12px; white-space: nowrap; }

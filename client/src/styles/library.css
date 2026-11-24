@@ -25,6 +25,56 @@
   color: var(--t-ink-muted);
 }
 
+/* Where the videos come from, and the button to look there again. */
+.lib-head-folder {
+  margin-top: 2px;
+  font-size: 13px;
+  color: var(--t-ink-muted);
+  opacity: 0.8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lib-rescan { flex-shrink: 0; display: inline-flex; align-items: center; gap: 8px; }
+.lib-rescan svg { color: var(--t-accent); }
+.lib-spin { animation: lib-spin 1.1s linear infinite; }
+@keyframes lib-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .lib-spin { animation: none; } }
+
+/* "Add your video folder" / "No videos in your folder yet" */
+.lib-setup {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+  padding: 18px 20px;
+  border: 1px solid var(--t-border);
+  border-radius: 18px;
+  background: var(--t-tint);
+}
+.lib-setup-icon {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  background: var(--t-surface, var(--t-page));
+  color: var(--t-accent);
+}
+.lib-setup-text { flex: 1; min-width: 0; }
+.lib-setup-text strong { display: block; font-size: 16px; color: var(--t-ink); }
+.lib-setup-text p { margin: 4px 0 0; font-size: 14px; line-height: 1.45; color: var(--t-ink-muted); overflow-wrap: anywhere; }
+.lib-setup-btns { display: flex; gap: 8px; flex-shrink: 0; }
+@media (max-width: 767px) {
+  .lib-setup { flex-wrap: wrap; }
+  .lib-setup > .rx-btn, .lib-setup-btns { width: 100%; }
+  .lib-setup-btns .rx-btn { flex: 1; }
+  .lib-rescan span { display: none; }
+  .lib-rescan { width: 44px; padding: 0; justify-content: center; }
+}
+
 /* --- Sticky toolbar ---------------------------------------------------------
    Sits under the nav and stays put while the grid scrolls, so search and the
    view switch are always reachable in a long library. */
@@ -990,4 +1040,38 @@
 @media (max-width: 767px) {
   .lib-recent { margin: 0 -16px; padding-left: 16px; padding-right: 16px; gap: 12px; }
   .lib-recent > .lib-video-item { flex-basis: 160px; }
+}
+
+/* --- Pinned folders ------------------------------------------------------------
+   The pin sits top-left on the cover (the YouTube badge has top-right). A
+   pinned folder always shows it; others show it on hover, or always on touch
+   screens, which have no hover. */
+.lib-folder-item { position: relative; min-width: 0; }
+.lib-folder-item > .lib-folder { width: 100%; }
+.lib-pin { left: 8px; right: auto; }
+.lib-pin.is-on svg { fill: currentColor; }
+@media (hover: hover) {
+  .lib-pin:not(.is-on) { opacity: 0; transition: opacity 0.15s, background-color 0.15s; }
+  .lib-folder-item:hover .lib-pin, .lib-pin:focus-visible { opacity: 1; }
+}
+
+.lib-folder-row-item { display: flex; align-items: center; border-top: 1px solid var(--t-border); }
+.lib-folder-row-item:first-child { border-top: none; }
+.lib-folder-row-item > .lib-folder-row { flex: 1; min-width: 0; border-top: none; }
+.lib-folder-row-item:hover { background: var(--t-subtle); }
+.lib-folder-row-item:hover > .lib-folder-row { background: none; }
+.lib-pin-row { width: 36px; height: 36px; margin-right: 2px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; padding: 0; border: none; border-radius: 10px; background: none; color: var(--t-ink-faint); cursor: pointer; transition: background-color 0.15s, color 0.15s; }
+.lib-pin-row:hover { background: var(--t-tint); color: var(--t-ink); }
+.lib-pin-row.is-on { color: var(--t-accent); }
+.lib-pin-row.is-on svg { fill: currentColor; }
+.lib-pin-row:focus-visible { outline: 2px solid var(--t-accent); outline-offset: 2px; }
+.lib-folder-pin.is-on .lib-action-icon { fill: currentColor; }
+.lib-chevron--after { flex-shrink: 0; margin-right: 12px; pointer-events: none; }
+
+/* Pinned folders lead the Folders grid a little bigger: three across instead
+   of four (two on a phone, like the rest). */
+.lib-grid--pinned { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-bottom: 28px; }
+.lib-grid--pinned .lib-folder-name { font-size: 16px; }
+@media (max-width: 767px) {
+  .lib-grid--pinned { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-bottom: 16px; }
 }

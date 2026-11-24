@@ -77,7 +77,14 @@ export default function AiCleanupProgress() {
     return createPortal(
       <button type="button" className="job-pill" onClick={() => setMinimized(false)} title={t('ai.cleanup_expand')}>
         {failedRun ? <CircleAlert size={15} /> : finished ? <Check size={15} /> : <Sparkles size={15} />}
-        {finished ? t('ai.cleanup_short') : `${percent}% ${t('ai.cleanup_short')}`}
+        <span className="job-pill-text">
+          <small>{t('ai.cleanup_title')}</small>
+          {failedRun
+            ? t('ai.cleanup_pill_failed')
+            : job.cancelled
+              ? t('ai.cleanup_pill_stopped', { done: job.done, total: job.total })
+              : t('ai.cleanup_pill', { done: job.done, total: job.total })}
+        </span>
       </button>,
       document.body
     );

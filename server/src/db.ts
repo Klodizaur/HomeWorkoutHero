@@ -243,6 +243,24 @@ if (!codecInfo.some((c: any) => c.name === 'file_created_at')) {
   db.exec('ALTER TABLE videos ADD COLUMN file_created_at TEXT');
 }
 
+// Who a video suits: beginner, intermediate, advanced or all. Set by the user,
+// or filled in from the video's AI profile while it's still empty — the
+// profiler never overwrites a value that's already there.
+if (!(db.pragma("table_info('videos')") as any[]).some((c: any) => c.name === 'level')) {
+  db.exec('ALTER TABLE videos ADD COLUMN level TEXT');
+}
+
+// Tags people add themselves, on top of the built-in lists. Shared like video
+// tags are: a video is the same video for everyone on the install.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS custom_tags (
+    kind TEXT NOT NULL,        -- 'training_type' | 'body_part' | 'equipment'
+    value TEXT NOT NULL,       -- stored on videos exactly as written here
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (kind, value)
+  );
+`);
+
 /**
  * A file's creation date as ISO text, or null when it can't be read (the file
  * moved, or its drive is unplugged). Filesystems that don't record one report
@@ -341,6 +359,22 @@ if (workoutLogCount === 0) {
 // Manual (self-logged) entries store their own metadata tags directly on the log
 // row, since there is no linked video to join them from. `is_manual` distinguishes
 // these from app-completed rows, which keep joining live metadata from `videos`.
+// A placeholder day: text only ("Swimming", "Add videos later"), no videos. Its
+// text is the workout's name; the flag keeps the name matcher off it.
+const workoutsInfo = db.pragma("table_info('workouts')") as any[];
+if (!workoutsInfo.some((c: any) => c.name === 'placeholder')) {
+  db.exec('ALTER TABLE workouts ADD COLUMN placeholder INTEGER NOT NULL DEFAULT 0');
+}
+// How long a placeholder day takes, in minutes, when the user said. Optional.
+if (!workoutsInfo.some((c: any) => c.name === 'placeholder_minutes')) {
+  db.exec('ALTER TABLE workouts ADD COLUMN placeholder_minutes INTEGER');
+}
+// 'activity' for a text day that's a workout of its own (swimming), NULL for a
+// placeholder waiting for videos.
+if (!workoutsInfo.some((c: any) => c.name === 'placeholder_kind')) {
+  db.exec('ALTER TABLE workouts ADD COLUMN placeholder_kind TEXT');
+}
+
 const workoutLogInfo = db.pragma("table_info('workout_log')") as any[];
 for (const col of ['training_type', 'body_parts', 'intensity', 'equipment']) {
   if (!workoutLogInfo.some((c: any) => c.name === col)) {
@@ -362,6 +396,24 @@ if (!workoutLogInfo.some((c: any) => c.name === 'notes')) {
 // render no badge; only a real set (2+) is worth marking in the log.
 if (!workoutLogInfo.some((c: any) => c.name === 'loop_count')) {
   db.exec('ALTER TABLE workout_log ADD COLUMN loop_count INTEGER');
+}
+
+// How the user felt before and after a workout, on a 1 (awful) to 5 (great)
+// scale. Both optional. Mirrored across every row of the workout, like notes.
+for (const col of ['mood_before', 'mood_after']) {
+  if (!workoutLogInfo.some((c: any) => c.name === col)) {
+    db.exec(`ALTER TABLE workout_log ADD COLUMN ${col} INTEGER`);
+  }
+}
+// Why a workout felt rough, when the user said (a MOOD_REASONS key). Asked only
+// after a low or dropped mood; mirrored across the workout's rows like the mood.
+if (!workoutLogInfo.some((c: any) => c.name === 'mood_reason')) {
+  db.exec('ALTER TABLE workout_log ADD COLUMN mood_reason TEXT');
+}
+// A placeholder day has no video to take a runtime from, so marking it done
+// copies its minutes in here (as seconds); the log reads this when no video is joined.
+if (!workoutLogInfo.some((c: any) => c.name === 'duration_seconds')) {
+  db.exec('ALTER TABLE workout_log ADD COLUMN duration_seconds INTEGER');
 }
 
 db.exec('CREATE INDEX IF NOT EXISTS idx_workout_log_date ON workout_log(completed_date)');

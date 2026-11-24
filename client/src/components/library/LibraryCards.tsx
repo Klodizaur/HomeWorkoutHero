@@ -1,4 +1,4 @@
-import { Check, ChevronRight, Folder, Heart, Info, MoreVertical, Play, Plus } from 'lucide-react';
+import { Check, ChevronRight, Folder, Heart, Info, MoreVertical, Pin, Play, Plus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import YouTubeGlyph from '../icons/YouTubeGlyph';
 import { VideoTag, formatDuration, stripVideoExt, useVideoTags } from '../../lib/videoTags';
@@ -42,8 +42,45 @@ export interface FolderItem {
   isFavorites?: boolean;
 }
 
+/** Pin / unpin a folder; a sibling of the card, since a button can't hold a button. */
+function PinButton({ pinned, onPin, className }: { pinned: boolean; onPin: () => void; className: string }) {
+  const { t } = useTranslation();
+  const label = t(pinned ? 'library.unpin_folder' : 'library.pin_folder');
+  return (
+    <button
+      type="button"
+      className={`${className}${pinned ? ' is-on' : ''}`}
+      aria-pressed={pinned}
+      aria-label={label}
+      title={label}
+      onClick={onPin}
+    >
+      <Pin size={15} />
+    </button>
+  );
+}
+
+interface FolderProps {
+  folder: FolderItem;
+  onOpen: () => void;
+  /** Given where folders can be pinned (the Library index). */
+  pinned?: boolean;
+  onPin?: () => void;
+}
+
 /** A folder or imported album, as a cover card. */
-export function FolderCard({ folder, onOpen }: { folder: FolderItem; onOpen: () => void }) {
+export function FolderCard({ folder, onOpen, pinned = false, onPin }: FolderProps) {
+  const card = <FolderCardBody folder={folder} onOpen={onOpen} />;
+  if (!onPin) return card;
+  return (
+    <div className="lib-folder-item">
+      {card}
+      <PinButton pinned={pinned} onPin={onPin} className="rx-heart rx-heart--top lib-pin" />
+    </div>
+  );
+}
+
+function FolderCardBody({ folder, onOpen }: { folder: FolderItem; onOpen: () => void }) {
   const { t } = useTranslation();
   return (
     <button type="button" className="lib-folder" onClick={onOpen}>
@@ -67,7 +104,19 @@ export function FolderCard({ folder, onOpen }: { folder: FolderItem; onOpen: () 
 }
 
 /** The same folder as a list row. */
-export function FolderRow({ folder, onOpen }: { folder: FolderItem; onOpen: () => void }) {
+export function FolderRow({ folder, onOpen, pinned = false, onPin }: FolderProps) {
+  if (!onPin) return <FolderRowBody folder={folder} onOpen={onOpen} />;
+  // The pin goes before the arrow, so the arrow stays at the row's end.
+  return (
+    <div className="lib-folder-row-item">
+      <FolderRowBody folder={folder} onOpen={onOpen} chevron={false} />
+      <PinButton pinned={pinned} onPin={onPin} className="lib-pin-row" />
+      <ChevronRight size={18} className="lib-chevron lib-chevron--after" aria-hidden />
+    </div>
+  );
+}
+
+function FolderRowBody({ folder, onOpen, chevron = true }: { folder: FolderItem; onOpen: () => void; chevron?: boolean }) {
   const { t } = useTranslation();
   return (
     <button type="button" className="lib-folder-row" onClick={onOpen}>
@@ -87,7 +136,7 @@ export function FolderRow({ folder, onOpen }: { folder: FolderItem; onOpen: () =
       {folder.isFavorites && (
         <span className="lib-folder-row-yt lib-fav-row"><Heart size={16} /></span>
       )}
-      <ChevronRight size={18} className="lib-chevron" />
+      {chevron && <ChevronRight size={18} className="lib-chevron" />}
     </button>
   );
 }

@@ -26,9 +26,21 @@ interface AiConfig {
   model: string;
   descriptionLanguage: DescriptionLanguage;
   planFlow: PlanFlow;
+  videoProfiles: boolean;
   hasKey: boolean;
   isLocal: boolean;
   available: boolean;
+}
+
+/** Progress of the background video profiles for this profile's library. */
+interface ProfileStatus {
+  enabled: boolean;
+  total: number;
+  done: number;
+  stale: number;
+  failed: number;
+  running: boolean;
+  error: string | null;
 }
 
 interface ModelChoice {
@@ -62,6 +74,8 @@ export default function AiSettingsSection() {
   const [apiKey, setApiKey] = useState('');
   const [language, setLanguage] = useState<DescriptionLanguage>('');
   const [planFlow, setPlanFlow] = useState<PlanFlow>('all');
+  const [videoProfiles, setVideoProfiles] = useState(false);
+  const [profileStatus, setProfileStatus] = useState<ProfileStatus | null>(null);
   const [status, setStatus] = useState('');
   const [statusOk, setStatusOk] = useState(true);
   const [testing, setTesting] = useState(false);
@@ -85,12 +99,32 @@ export default function AiSettingsSection() {
         setModel(data.model);
         setLanguage(data.descriptionLanguage || '');
         setPlanFlow(data.planFlow === 'guided' ? 'guided' : 'all');
+        setVideoProfiles(Boolean(data.videoProfiles));
         if (data.hasKey || data.isLocal) loadModels();
       })
       .catch(() => setConfig(null));
   };
 
   useEffect(load, []);
+
+  // The one place video profiles show up: a quiet count under the setting,
+  // refreshed while this screen is open and the feature is on.
+  const profilesOn = Boolean(config?.videoProfiles);
+  useEffect(() => {
+    if (!profilesOn) {
+      setProfileStatus(null);
+      return;
+    }
+    let alive = true;
+    const poll = () =>
+      fetch('/api/ai/video-profiles/status')
+        .then(r => (r.ok ? r.json() : null))
+        .then(data => { if (alive && data) setProfileStatus(data); })
+        .catch(() => {});
+    poll();
+    const id = window.setInterval(poll, 10_000);
+    return () => { alive = false; window.clearInterval(id); };
+  }, [profilesOn]);
 
   /**
    * Ask the endpoint what it serves. Failures are silent — an endpoint with no
@@ -158,6 +192,7 @@ export default function AiSettingsSection() {
         model,
         descriptionLanguage: language,
         planFlow,
+        videoProfiles,
         // Omitted rather than sent empty, so saving a model change doesn't
         // wipe a key the user never retyped.
         ...(apiKey ? { apiKey } : {}),
@@ -399,6 +434,22 @@ export default function AiSettingsSection() {
             <button type="button" className={planFlow === 'guided' ? 'is-on' : ''} onClick={() => setPlanFlow('guided')}>{t('ai.flow_guided')}</button>
           </div>
           <p className="st-help">{planFlow === 'guided' ? t('ai.flow_guided_hint') : t('ai.flow_all_hint')}</p>
+        </div>
+
+        <div className="st-field-group">
+          <label className="st-label">{t('ai.profiles_label')}</label>
+          <div className="rx-seg st-seg-start">
+            <button type="button" className={videoProfiles ? 'is-on' : ''} onClick={() => setVideoProfiles(true)}>{t('ai.profiles_on')}</button>
+            <button type="button" className={!videoProfiles ? 'is-on' : ''} onClick={() => setVideoProfiles(false)}>{t('ai.profiles_off')}</button>
+          </div>
+          <p className="st-help">{t('ai.profiles_hint')}</p>
+          {profileStatus && (
+            <p className={`st-help ${profileStatus.error ? 'st-help--bad' : ''}`}>
+              {profileStatus.error
+                ? t('ai.profiles_paused', { error: profileStatus.error })
+                : t('ai.profiles_progress', { done: profileStatus.done, total: profileStatus.total })}
+            </p>
+          )}
         </div>
 
         <div className="st-ai-foot">

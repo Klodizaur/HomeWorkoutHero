@@ -22,6 +22,8 @@
 import db from './db.js';
 import { PROFILE_VIDEOS } from './profiles.js';
 import { nanoid } from 'nanoid';
+import { parseMinutes } from './minutes.js';
+import { parsePlaceholderKind } from './placeholderKind.js';
 
 export const PLAN_EXPORT_FORMAT = 'homeworkouthero.plan';
 /** Every format a plan file may carry: plans exported before the app was renamed
@@ -58,6 +60,12 @@ export interface ExportedWorkout {
   name: string;
   sequenceOrder: number;
   videos: ExportedVideo[];
+  /** A text-only day with no videos (the name is its text). Absent in older files. */
+  placeholder?: boolean;
+  /** A placeholder's planned length in minutes, when given. */
+  minutes?: number;
+  /** 'activity' for a workout of its own (swimming); absent for a placeholder. */
+  kind?: 'activity';
 }
 
 export interface ExportedPlan {
@@ -141,7 +149,7 @@ export function exportPlans(profileId: string, planIds: string[] | null, appVers
     appVersion,
     plans: plans.map(plan => {
       const workouts = db.prepare(
-        'SELECT name, sequence_order, video_ids FROM workouts WHERE plan_id = ? ORDER BY sequence_order ASC'
+        'SELECT name, sequence_order, video_ids, placeholder, placeholder_minutes, placeholder_kind FROM workouts WHERE plan_id = ? ORDER BY sequence_order ASC'
       ).all(plan.id) as any[];
 
       return {
@@ -153,6 +161,9 @@ export function exportPlans(profileId: string, planIds: string[] | null, appVers
         workouts: workouts.map(w => ({
           name: w.name,
           sequenceOrder: w.sequence_order,
+          ...(w.placeholder ? { placeholder: true } : {}),
+          ...(w.placeholder && w.placeholder_minutes ? { minutes: w.placeholder_minutes } : {}),
+          ...(w.placeholder && w.placeholder_kind === 'activity' ? { kind: 'activity' as const } : {}),
           // A video ID that no longer resolves is dropped rather than exported
           // as a dangling reference — the plan already renders without it.
           videos: parseJsonArray(w.video_ids)
@@ -355,7 +366,7 @@ export function importPlans(profileId: string, file: PlanExportFile): { reports:
      ON CONFLICT(profile_id, video_id) DO UPDATE SET in_library = 1`
   );
   const insertWorkout = db.prepare(
-    'INSERT INTO workouts (id, plan_id, name, sequence_order, video_ids) VALUES (?, ?, ?, ?, ?)'
+    'INSERT INTO workouts (id, plan_id, name, sequence_order, video_ids, placeholder, placeholder_minutes, placeholder_kind) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
   );
 
   db.transaction(() => {
@@ -411,7 +422,10 @@ export function importPlans(profileId: string, file: PlanExportFile): { reports:
           planId,
           workout.name,
           typeof workout.sequenceOrder === 'number' ? workout.sequenceOrder : index,
-          JSON.stringify(ids)
+          JSON.stringify(ids),
+          workout.placeholder === true ? 1 : 0,
+          workout.placeholder === true ? parseMinutes(workout.minutes) : null,
+          workout.placeholder === true ? parsePlaceholderKind(workout.kind) : null
         );
       });
     });

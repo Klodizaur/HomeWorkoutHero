@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Play, RotateCcw, ChevronLeft, ChevronRight, Check, Moon, BookOpen, ExternalLink, X } from 'lucide-react';
+import { Play, RotateCcw, ChevronLeft, ChevronRight, Check, Moon, BookOpen, ExternalLink, X, Clock } from 'lucide-react';
+import { NoteIcon } from '../components/calendar/NoteDay';
+import { togglePlaceholderDone } from '../components/calendar/NoteDay';
 import YouTubeGlyph from '../components/icons/YouTubeGlyph';
 import { CompletedBadge } from '../components/library/LibraryCards';
 import { useTranslation } from 'react-i18next';
@@ -20,6 +22,12 @@ interface ScheduleDay {
   workout: {
     id: string;
     name: string;
+    /** A text-only day: its name is the note, it has no videos. */
+    placeholder?: boolean;
+    /** A placeholder's planned length in minutes, when given. */
+    minutes?: number | null;
+    /** What a text day is: videos still to come, or an activity of its own. */
+    kind?: 'placeholder' | 'activity' | null;
     videos: {
       id: string;
       filename: string;
@@ -81,11 +89,18 @@ export default function Dashboard() {
     notify(t('dashboard.guide_dismissed'), 'ok');
   };
 
-  useEffect(() => {
+  const loadSchedules = () =>
     fetch('/api/schedule')
       .then(res => res.json())
       .then(data => setPlanSchedules(data.schedules || []));
-  }, []);
+  useEffect(() => { loadSchedules(); }, []);
+
+  // A note day (placeholder) has nothing to play, so it's ticked off right here.
+  const [noteBusy, setNoteBusy] = useState(false);
+  const toggleNoteDay = async (workoutId: string) => {
+    setNoteBusy(true);
+    try { if (await togglePlaceholderDone(workoutId)) await loadSchedules(); } finally { setNoteBusy(false); }
+  };
 
   const selectedPlan = planSchedules[planIndex] || null;
 
@@ -249,7 +264,57 @@ export default function Dashboard() {
         </aside>
       )}
 
-      {todaySchedule && !isRestDay && todaySchedule.workout ? (
+      {todaySchedule && !isRestDay && todaySchedule.workout?.placeholder ? (
+        /* A note day: the rest-day card with the note as its title, and a
+           done button instead of Start, since there's nothing to play. */
+        <section className="dash-today">
+          <div className="dash-today-media dash-today-rest-media">
+            <div className="dash-today-rest-panel">
+              {workoutDone ? <Check size={30} /> : <NoteIcon kind={todaySchedule.workout.kind} size={30} />}
+              <span>{workoutDone ? t('dashboard.workout_finished') : t(todaySchedule.workout.kind === 'activity' ? 'dashboard.activity_day' : 'dashboard.note_day')}</span>
+            </div>
+          </div>
+          <div className="dash-today-body">
+            <div className="dash-today-meta">
+              {selectedPlan && (
+                <span className="dash-plan-pill">
+                  {t(selectedPlan.slot === 'extra' ? 'plans.slot_extra' : 'plans.slot_main')}
+                </span>
+              )}
+              <span style={{ fontWeight: 600 }}>{planInfo?.name}</span>
+              {todaySchedule.workout.minutes ? (
+                <span className="dash-note-min"><Clock size={14} />{t('calendar.note_minutes', { count: todaySchedule.workout.minutes })}</span>
+              ) : null}
+            </div>
+            <h2 className="dash-today-title">{todaySchedule.workout.name}</h2>
+            <p className="rx-muted" style={{ margin: 0 }}>{t(todaySchedule.workout.kind === 'activity' ? 'dashboard.activity_day_msg' : 'dashboard.note_day_msg')}</p>
+            <div className="dash-today-actions">
+              <button
+                type="button"
+                className={`rx-btn ${workoutDone ? '' : 'rx-btn--primary'}`}
+                disabled={noteBusy}
+                onClick={() => toggleNoteDay(todaySchedule.workout!.id)}
+              >
+                {workoutDone ? <RotateCcw size={17} /> : <Check size={17} />}
+                {workoutDone ? t('calendar.note_undo') : t('calendar.note_mark_done')}
+              </button>
+              <button type="button" className="rx-btn" onClick={() => navigate('/calendar')}>
+                {t('dashboard.full_plan')}
+              </button>
+            </div>
+            {planInfo && (
+              <div className="dash-today-progress">
+                <div className="dash-today-progress-row">
+                  <span style={{ fontWeight: 600 }}>
+                    {t('dashboard.plan_progress', { completed: planInfo.completedWorkouts, total: planInfo.totalWorkouts })}
+                  </span>
+                </div>
+                <div className="rx-progress"><span style={{ width: `${planPct}%` }} /></div>
+              </div>
+            )}
+          </div>
+        </section>
+      ) : todaySchedule && !isRestDay && todaySchedule.workout ? (
         <section className="dash-today">
           <div className="dash-today-media">
             {heroImage ? (
@@ -421,6 +486,10 @@ export default function Dashboard() {
                         )}
                         <span className="dash-up-plan-name">{planInfo?.name}</span>
                       </div>
+
+                      {day.workout?.placeholder && (
+                        <div className="dash-up-note"><NoteIcon kind={day.workout.kind} size={16} /><span>{day.workout.name}</span>{day.workout.minutes ? <span className="dash-up-note-min">{t('calendar.note_minutes', { count: day.workout.minutes })}</span> : null}</div>
+                      )}
 
                       {shown.map(video => (
                         <button

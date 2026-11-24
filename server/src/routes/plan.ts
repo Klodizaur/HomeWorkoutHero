@@ -1,4 +1,6 @@
 import { FastifyInstance } from 'fastify';
+import { parseMinutes } from '../minutes.js';
+import { kindOf, parsePlaceholderKind } from '../placeholderKind.js';
 import db, { DATA_DIR } from '../db.js';
 import { nanoid } from 'nanoid';
 import { parse } from 'csv-parse/sync';
@@ -20,6 +22,7 @@ import { analyzeImport, exportPlans, importPlans, validateExportFile } from '../
 import { appVersion } from '../version.js';
 import { ownsPlan, profileHook, PROFILE_VIDEOS } from '../profiles.js';
 import { copyPlanTo } from '../planCopy.js';
+import { isPlanComplete, startNewRun } from '../planRuns.js';
 
 function isSkip(cell: string): boolean {
   const t = cell.trim();
@@ -173,6 +176,30 @@ function parseRowFormat(records: string[][]): Session[] {
   return sessions;
 }
 
+/** A day as the plan builder sends it: videos, or a placeholder's text. */
+interface BuilderDayInput { name: string; videoIds: string[]; workoutId?: string; placeholder?: boolean; minutes?: number | null; kind?: string | null }
+
+const MAX_PLACEHOLDER_TEXT = 200;
+
+/**
+ * The days worth saving: those with videos, and placeholder days with text
+ * (a day to fill in later). A placeholder carries no videos; its text is its name.
+ */
+function keptDays(raw: unknown): BuilderDayInput[] {
+  if (!Array.isArray(raw)) return [];
+  const out: BuilderDayInput[] = [];
+  for (const day of raw as BuilderDayInput[]) {
+    if (!day || !Array.isArray(day.videoIds)) continue;
+    if (day.placeholder) {
+      const text = typeof day.name === 'string' ? day.name.trim().slice(0, MAX_PLACEHOLDER_TEXT) : '';
+      if (text) out.push({ name: text, videoIds: [], workoutId: day.workoutId, placeholder: true, minutes: parseMinutes(day.minutes), kind: parsePlaceholderKind(day.kind) });
+    } else if (day.videoIds.length > 0) {
+      out.push({ ...day, placeholder: false, minutes: null, kind: null });
+    }
+  }
+  return out;
+}
+
 export default async function (fastify: FastifyInstance) {
   // Every plan belongs to a profile. Any route naming a plan (`:id`) answers
   // "not found" for someone else's — checked once here rather than in each
@@ -249,8 +276,8 @@ export default async function (fastify: FastifyInstance) {
   });
 
   fastify.post('/create', async (request, reply) => {
-    const body = request.body as { name?: string; startDate?: string; category?: string; description?: string; workoutPattern?: number[]; days?: Array<{ name: string; videoIds: string[] }> };
-    const days = Array.isArray(body.days) ? body.days.filter(day => Array.isArray(day.videoIds) && day.videoIds.length > 0) : [];
+    const body = request.body as { name?: string; startDate?: string; category?: string; description?: string; workoutPattern?: number[]; days?: BuilderDayInput[] };
+    const days = keptDays(body.days);
     if (!days.length) {
       return reply.code(400).send({ error: 'No workouts provided' });
     }
@@ -267,10 +294,10 @@ export default async function (fastify: FastifyInstance) {
         'INSERT INTO workout_plans (id, profile_id, name, is_active, start_date, category, description, workout_pattern) VALUES (?, ?, ?, 0, ?, ?, ?, ?)'
       ).run(planId, request.profileId, planName, startDate, category, description, pattern);
       const insertStmt = db.prepare(
-        'INSERT INTO workouts (id, plan_id, name, sequence_order, video_ids) VALUES (?, ?, ?, ?, ?)'
+        'INSERT INTO workouts (id, plan_id, name, sequence_order, video_ids, placeholder, placeholder_minutes, placeholder_kind) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
       );
       days.forEach((day, index) => {
-        insertStmt.run(nanoid(), planId, day.name || `Day ${index + 1}`, index, JSON.stringify(day.videoIds));
+        insertStmt.run(nanoid(), planId, day.name || `Day ${index + 1}`, index, JSON.stringify(day.videoIds), day.placeholder ? 1 : 0, day.minutes ?? null, day.kind ?? null);
       });
     })();
 
@@ -279,8 +306,8 @@ export default async function (fastify: FastifyInstance) {
 
   fastify.put('/:id', async (request, reply) => {
     const { id } = request.params as { id: string };
-    const body = request.body as { name?: string; startDate?: string; category?: string; description?: string; workoutPattern?: number[]; days?: Array<{ name: string; videoIds: string[]; workoutId?: string }> };
-    const days = Array.isArray(body.days) ? body.days.filter(day => Array.isArray(day.videoIds) && day.videoIds.length > 0) : [];
+    const body = request.body as { name?: string; startDate?: string; category?: string; description?: string; workoutPattern?: number[]; days?: BuilderDayInput[] };
+    const days = keptDays(body.days);
     if (!days.length) {
       return reply.code(400).send({ error: 'No workouts provided' });
     }
@@ -341,10 +368,10 @@ export default async function (fastify: FastifyInstance) {
       };
 
       const updateWorkout = db.prepare(
-        'UPDATE workouts SET name = ?, sequence_order = ?, video_ids = ? WHERE id = ?'
+        'UPDATE workouts SET name = ?, sequence_order = ?, video_ids = ?, placeholder = ?, placeholder_minutes = ?, placeholder_kind = ? WHERE id = ?'
       );
       const insertWorkout = db.prepare(
-        'INSERT INTO workouts (id, plan_id, name, sequence_order, video_ids) VALUES (?, ?, ?, ?, ?)'
+        'INSERT INTO workouts (id, plan_id, name, sequence_order, video_ids, placeholder, placeholder_minutes, placeholder_kind) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
       );
       const addDayMark = db.prepare(
         'INSERT INTO history (id, workout_id, video_id) VALUES (?, ?, NULL)'
@@ -362,7 +389,7 @@ export default async function (fastify: FastifyInstance) {
         // A fresh day, or an id that isn't this plan's (or was already used by
         // an earlier day in this save): a new row with no progress.
         if (!previous || kept.has(previous.id)) {
-          insertWorkout.run(nanoid(), id, name, index, videoIds);
+          insertWorkout.run(nanoid(), id, name, index, videoIds, day.placeholder ? 1 : 0, day.minutes ?? null, day.kind ?? null);
           return;
         }
 
@@ -384,7 +411,7 @@ export default async function (fastify: FastifyInstance) {
           }
         }
 
-        updateWorkout.run(name, index, videoIds, previous.id);
+        updateWorkout.run(name, index, videoIds, day.placeholder ? 1 : 0, day.minutes ?? null, day.kind ?? null, previous.id);
       });
 
       // Days that didn't come back were removed in the builder. Their ticks go
@@ -410,7 +437,7 @@ export default async function (fastify: FastifyInstance) {
       slot: plan.is_active === ACTIVE_EXTRA ? 'extra' : 'main',
       plan,
       workouts: db.prepare(
-        'SELECT id, name, sequence_order, video_ids FROM workouts WHERE plan_id = ? ORDER BY sequence_order ASC'
+        'SELECT id, name, sequence_order, video_ids, placeholder, placeholder_minutes, placeholder_kind FROM workouts WHERE plan_id = ? ORDER BY sequence_order ASC'
       ).all(plan.id),
     }));
     const main = withWorkouts.find(entry => entry.slot === 'main') || null;
@@ -488,8 +515,8 @@ export default async function (fastify: FastifyInstance) {
       return reply.code(404).send({ error: 'Plan not found' });
     }
     const workouts = db.prepare(
-      'SELECT id, name, sequence_order, video_ids FROM workouts WHERE plan_id = ? ORDER BY sequence_order ASC'
-    ).all(id) as { id: string; name: string; sequence_order: number; video_ids: string | null }[];
+      'SELECT id, name, sequence_order, video_ids, placeholder, placeholder_minutes, placeholder_kind FROM workouts WHERE plan_id = ? ORDER BY sequence_order ASC'
+    ).all(id) as { id: string; name: string; sequence_order: number; video_ids: string | null; placeholder: number; placeholder_minutes: number | null; placeholder_kind: string | null }[];
 
     // Every video the plan uses, resolved once so the plan details view doesn't
     // have to fetch and filter the whole library. Returned two ways: attached to
@@ -536,6 +563,9 @@ export default async function (fastify: FastifyInstance) {
       id: workout.id,
       name: workout.name,
       sequence_order: workout.sequence_order,
+      placeholder: Boolean(workout.placeholder),
+      minutes: workout.placeholder ? workout.placeholder_minutes ?? null : null,
+      kind: workout.placeholder ? kindOf(workout.placeholder_kind) : null,
       videos: (idsByWorkout.get(workout.id) || [])
         .filter(vid => resolved.has(vid))
         .map(vid => resolved.get(vid)),
@@ -567,20 +597,27 @@ export default async function (fastify: FastifyInstance) {
     const { id } = request.params as { id: string };
     const { startDate, slot } = request.body as { startDate?: string; slot?: string };
 
-    const plan = db.prepare('SELECT id FROM workout_plans WHERE id = ?').get(id);
+    const plan = db.prepare('SELECT id, is_active FROM workout_plans WHERE id = ?').get(id) as { id: string; is_active: number } | undefined;
     if (!plan) return reply.code(404).send({ error: 'Plan not found' });
 
     const finalStartDate = startDate || new Date().toISOString().split('T')[0];
     const targetSlot = parseSlot(slot);
     const flag = FLAG_BY_SLOT[targetSlot];
 
+    // Starting a plan you've already finished is doing it again: a fresh run
+    // with every day open. Its finish and its log entries stay. A plan that's
+    // still running (just moved or re-dated) or was only paused part-way keeps
+    // its ticks.
+    const restarted = plan.is_active === ACTIVE_NONE && isPlanComplete(id).complete;
+
     db.transaction(() => {
+      if (restarted) startNewRun(id);
       // Only your own plan in that slot makes way; slots are per profile.
       db.prepare('UPDATE workout_plans SET is_active = ? WHERE is_active = ? AND profile_id = ?').run(ACTIVE_NONE, flag, request.profileId);
       db.prepare('UPDATE workout_plans SET is_active = ?, start_date = ? WHERE id = ?').run(flag, finalStartDate, id);
     })();
 
-    return reply.send({ success: true, slot: targetSlot });
+    return reply.send({ success: true, slot: targetSlot, restarted });
   });
 
   // Copy a plan, its days and its look. The copy is never active: duplicating is

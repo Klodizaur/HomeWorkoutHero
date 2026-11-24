@@ -11,6 +11,7 @@ import ProfilesSection from '../components/profiles/ProfilesSection';
 import { useProfiles } from '../components/profiles/ProfileGate';
 import { avatarUrl, BackupInfo, BackupPrefs, getMyBackup, saveMyBackup, updateMyProfile, uploadMyPicture } from '../lib/profiles';
 import BackupSection from '../components/profiles/BackupSection';
+import CustomTagsSection from '../components/CustomTagsSection';
 import { PictureError, squarePicture } from '../lib/imageResize';
 import { announceSettingsSaved } from '../lib/settingsEvents';
 import { THEMES } from '../lib/themes';
@@ -41,6 +42,11 @@ const asLayout = (value: string): Layout => (value === 'tape' || value === 'week
 
 const MAX_CYCLE = 14;
 
+const AUTO_SCANS = ['off', 'startup', 'hourly'] as const;
+type AutoScan = typeof AUTO_SCANS[number];
+const asAutoScan = (value: unknown): AutoScan =>
+  (AUTO_SCANS as readonly unknown[]).includes(value) ? (value as AutoScan) : 'off';
+
 type ScanProgress = {
   active: boolean;
   phase: 'idle' | 'discovering' | 'processing' | 'done';
@@ -65,6 +71,60 @@ export default function Settings() {
   const [newExclude, setNewExclude] = useState('');
   const [theme, setTheme] = useState('midnight');
   const [calendarView, setCalendarView] = useState<Layout>('grid');
+  // Mood prompts on/off. Saved the moment it's flipped, like the language; off
+  // only hides mood everywhere, it never deletes what was logged.
+  const [moodTracking, setMoodTracking] = useState<boolean | null>(null);
+  useEffect(() => {
+    fetch('/api/settings').then(r => r.json()).then(d => setMoodTracking(d?.mood_tracking !== false)).catch(() => {});
+  }, []);
+  // When the library folder is scanned without pressing Scan. Saved the moment
+  // it's picked, like mood tracking.
+  const [autoScan, setAutoScan] = useState<AutoScan | null>(null);
+  useEffect(() => {
+    fetch('/api/settings').then(r => r.json()).then(d => setAutoScan(asAutoScan(d?.auto_scan))).catch(() => {});
+  }, []);
+  const changeAutoScan = async (mode: AutoScan) => {
+    const prev = autoScan;
+    setAutoScan(mode);
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ auto_scan: mode }),
+      });
+      if (!res.ok) throw new Error('failed');
+    } catch {
+      setAutoScan(prev);
+      flash(t('settings.failed_save'));
+    }
+  };
+
+  // The Library's "Choose folder" lands here with the folder field in view.
+  const folderInput = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('focus') !== 'folder') return;
+    const timer = window.setTimeout(() => {
+      folderInput.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      folderInput.current?.focus({ preventScroll: true });
+    }, 150);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  const changeMoodTracking = async (on: boolean) => {
+    const prev = moodTracking;
+    setMoodTracking(on);
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mood_tracking: on }),
+      });
+      if (!res.ok) throw new Error('failed');
+    } catch {
+      setMoodTracking(prev);
+      flash(t('settings.failed_save'));
+    }
+  };
   const [saved, setSaved] = useState<Saved | null>(null);
   // Sharing can only be switched from the desktop app, so Devices exists only there.
   const canShare = sharingBridge() !== null;
@@ -367,7 +427,7 @@ export default function Settings() {
               <div className="st-row">
                 <label className="st-field st-field--mono">
                   <Folder size={17} />
-                  <input type="text" value={directory} onChange={e => setDirectory(e.target.value)} spellCheck={false} />
+                  <input ref={folderInput} type="text" value={directory} onChange={e => setDirectory(e.target.value)} spellCheck={false} placeholder={t('settings.video_library_path_placeholder')} />
                 </label>
                 <div className="st-btns">
                   {canBrowseFolders && (
@@ -403,6 +463,22 @@ export default function Settings() {
                 <div className={`st-note ${scanNote.ok ? 'is-ok' : 'is-bad'}`}>
                   <CircleCheck size={15} />
                   {scanNote.text}
+                </div>
+              )}
+
+              {autoScan !== null && (
+                <div className="st-autoscan">
+                  <div className="st-autoscan-text">
+                    <strong>{t('settings.auto_scan')}</strong>
+                    <p>{t('settings.auto_scan_msg')}</p>
+                  </div>
+                  <div className="rx-seg" role="group" aria-label={t('settings.auto_scan')}>
+                    {AUTO_SCANS.map(mode => (
+                      <button key={mode} type="button" className={autoScan === mode ? 'is-on' : ''} aria-pressed={autoScan === mode} onClick={() => changeAutoScan(mode)}>
+                        {t(`settings.auto_scan_${mode}`)}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
             </section>
@@ -469,6 +545,21 @@ export default function Settings() {
                 <span>{t('settings.days_unit')}</span>
               </div>
             </section>
+
+            <section className="st-card st-card--inline">
+              <header>
+                <h2>{t('settings.mood_tracking')}</h2>
+                <p>{t('settings.mood_tracking_msg')}</p>
+              </header>
+              {moodTracking !== null && (
+                <div className="rx-seg" role="group" aria-label={t('settings.mood_tracking')}>
+                  <button type="button" className={moodTracking ? 'is-on' : ''} aria-pressed={moodTracking} onClick={() => changeMoodTracking(true)}>{t('settings.mood_on')}</button>
+                  <button type="button" className={!moodTracking ? 'is-on' : ''} aria-pressed={!moodTracking} onClick={() => changeMoodTracking(false)}>{t('settings.mood_off')}</button>
+                </div>
+              )}
+            </section>
+
+            <CustomTagsSection />
           </div>
         )}
 

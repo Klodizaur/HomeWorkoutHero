@@ -201,6 +201,7 @@ select.st-input { padding: 0 12px; cursor: pointer; }
 .st-label { font-size: 14px; font-weight: 700; }
 .st-req { color: var(--t-accent); }
 .st-help { margin: 0; font-size: 12px; color: var(--t-ink-muted); }
+.st-help--bad { color: var(--t-danger); }
 .st-two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; }
 .st-link { align-self: flex-start; padding: 0; border: none; background: none; color: var(--t-accent); font-family: inherit; font-size: 13px; font-weight: 600; text-decoration: underline; cursor: pointer; }
 .st-presets { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -302,3 +303,9 @@ select.st-input { padding: 0 12px; cursor: pointer; }
 @media (max-width: 767px) {
   .dv-phone { flex-direction: column; align-items: flex-start; }
 }
+
+/* Auto-scan, under the library folder: a label beside its three choices, stacked on a phone. */
+.st-autoscan { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--t-border); }
+.st-autoscan-text { flex: 1; min-width: 220px; }
+.st-autoscan-text strong { display: block; font-size: 15px; }
+.st-autoscan-text p { margin: 2px 0 0; font-size: 13px; color: var(--t-ink-muted); line-height: 1.4; }

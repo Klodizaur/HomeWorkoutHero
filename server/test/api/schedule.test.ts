@@ -66,7 +66,7 @@ describe('schedule', () => {
     ]);
   });
 
-  it('a frozen day pushes the rest of the plan back', async () => {
+  it('a frozen day pauses the plan, rhythm and all', async () => {
     const planId = await activePlan(3, [1]);
     db.prepare("INSERT INTO plan_freezes (id, plan_id, date, reason) VALUES ('f1', ?, '2026-01-06', 'unwell')").run(planId);
 
@@ -76,6 +76,23 @@ describe('schedule', () => {
       ['2026-01-06', null, 'unwell'],
       ['2026-01-07', 'W2', null],
       ['2026-01-08', 'W3', null],
+    ]);
+  });
+
+  it('picks up after a freeze where it stopped, not on a rest day', async () => {
+    // Workout, rest, workout, rest… Freezing the 7th (a workout day) used to
+    // leave the 8th as the rhythm's rest day: two days off for one frozen.
+    const planId = await activePlan(3, [1, 0]);
+    db.prepare("INSERT INTO plan_freezes (id, plan_id, date, reason) VALUES ('f2', ?, '2026-01-07', 'freeze')").run(planId);
+
+    const { schedule } = (await api.get('/api/schedule')).json();
+    expect(schedule.map((day: any) => [day.date, day.workout?.name ?? null, day.frozen])).toEqual([
+      ['2026-01-05', 'W1', null],
+      ['2026-01-06', null, null],
+      ['2026-01-07', null, 'freeze'],
+      ['2026-01-08', 'W2', null],
+      ['2026-01-09', null, null],
+      ['2026-01-10', 'W3', null],
     ]);
   });
 });

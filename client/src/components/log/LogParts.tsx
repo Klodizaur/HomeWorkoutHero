@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { CalendarDays, ChevronLeft, ChevronRight, Moon, NotebookPen, Pencil, Trash2, Trophy, X } from 'lucide-react';
+import { CalendarDays, ChevronLeft, ChevronRight, Clock, Moon, NotebookPen, Pencil, Smile, Trash2, Trophy, X } from 'lucide-react';
+import { Mood, MoodBadge, MoodFace, MoodPicker, useMoodLabel } from '../mood/Mood';
 import { useMetaLabels } from '../../lib/labels';
 import { Video } from '../../types/video';
 import { TagRow } from '../library/LibraryCards';
@@ -35,6 +36,8 @@ interface CalendarProps {
   today: string;
   selectedDate: string | null;
   countFor: (date: string) => number;
+  /** The mood logged that day, shown as a small face in the corner. */
+  moodFor: (date: string) => { before: Mood | null; after: Mood | null } | null;
   onPick: (date: string) => void;
   onMonth: (delta: number) => void;
   /** False once the month on screen is the current one: there's nothing to look at later. */
@@ -42,7 +45,7 @@ interface CalendarProps {
 }
 
 /** The month as flat squares: any day with a workout is one orange, however many it had. */
-export function ActivityCalendar({ cells, monthLabel, activeDays, today, selectedDate, countFor, onPick, onMonth, canGoNext }: CalendarProps) {
+export function ActivityCalendar({ cells, monthLabel, activeDays, today, selectedDate, countFor, moodFor, onPick, onMonth, canGoNext }: CalendarProps) {
   const { t } = useTranslation();
   const dows = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map(k => t(`calendar.${k}`).charAt(0).toUpperCase());
 
@@ -64,8 +67,10 @@ export function ActivityCalendar({ cells, monthLabel, activeDays, today, selecte
           const n = countFor(date);
           const future = date > today;
           const cls = `lg-day${n > 0 ? ' is-active' : ''}${future ? ' is-future' : ''}${date === today ? ' is-today' : ''}${date === selectedDate ? ' is-sel' : ''}`;
+          const mood = n > 0 ? moodFor(date) : null;
           return (
             <button key={i} type="button" className={cls} disabled={n === 0} onClick={() => onPick(date)} aria-pressed={date === selectedDate}>
+              {mood?.after && <MoodBadge mood={mood.after} size={14} className="lg-day-mood" />}
               {Number(date.slice(8))}
             </button>
           );
@@ -87,17 +92,24 @@ interface GroupProps {
   date: string;
   videosById: Map<string, Video>;
   onSaveNote: (ids: string[], notes: string) => Promise<void>;
+  onSaveMood: (ids: string[], mood: { moodBefore?: Mood | null; moodAfter?: Mood | null }) => Promise<unknown>;
+  /** False when the profile switched mood tracking off: nothing about mood shows. */
+  showMood: boolean;
   onSaveDate: (ids: string[], date: string) => Promise<void>;
+  /** Set (or clear, with null) the length of the group's entries without a video. */
+  onSaveDuration: (ids: string[], minutes: number | null) => Promise<void>;
   onDelete: (group: LogGroup) => void;
   onEditVideo: (video: Video) => void;
 }
 
 /** One logged workout: its videos, the note, and the quiet text actions. */
-export function JournalGroup({ group, date, videosById, onSaveNote, onSaveDate, onDelete, onEditVideo }: GroupProps) {
+export function JournalGroup({ group, date, videosById, onSaveNote, onSaveMood, showMood, onSaveDate, onSaveDuration, onDelete, onEditVideo }: GroupProps) {
   const { t } = useTranslation();
   const labels = useMetaLabels();
   const ids = group.entries.map(e => e.id);
-  const [mode, setMode] = useState<'view' | 'note' | 'date'>('view');
+  const [mode, setMode] = useState<'view' | 'note' | 'date' | 'mood' | 'duration'>('view');
+  const moodLabel = useMoodLabel();
+  const hasMood = showMood && Boolean(group.moodBefore || group.moodAfter);
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -114,6 +126,13 @@ export function JournalGroup({ group, date, videosById, onSaveNote, onSaveDate, 
     title: entry.videoFilename ? stripExt(entry.videoFilename) : group.nameLines[i] || group.nameLines[0] || t('profile.untitled_workout'),
   }));
 
+  // Entries without a video have no runtime of their own: their length is typed.
+  const untimedIds = group.entries.filter(e => !e.videoId).map(e => e.id);
+  const typedMinutes = (() => {
+    const secs = group.entries.find(e => !e.videoId && e.durationSeconds)?.durationSeconds;
+    return secs ? Math.round(secs / 60) : null;
+  })();
+
   const editable = rows.flatMap(({ entry, title }) => {
     const video = findLoggedVideo(videosById, entry);
     return video ? [{ video, title }] : [];
@@ -126,7 +145,13 @@ export function JournalGroup({ group, date, videosById, onSaveNote, onSaveDate, 
           className="lg-menu"
           items={[
             { label: group.notes ? t('profile.notes_edit') : t('profile.notes_add'), icon: <NotebookPen size={16} />, run: () => { setDraft(group.notes); setMode('note'); } },
+            ...(showMood ? [{ label: hasMood ? t('mood.edit') : t('mood.add'), icon: <Smile size={16} />, run: () => setMode('mood') }] : []),
             { label: t('profile.edit_date'), icon: <CalendarDays size={16} />, run: () => { setDraft(date); setMode('date'); } },
+            ...(untimedIds.length > 0 ? [{
+              label: typedMinutes ? t('profile.duration_edit') : t('profile.duration_add'),
+              icon: <Clock size={16} />,
+              run: () => { setDraft(typedMinutes ? String(typedMinutes) : ''); setMode('duration'); },
+            }] : []),
             // One entry per video: a workout logged from several videos edits each on its own.
             ...editable.map(({ video, title }) => ({
               label: editable.length > 1 ? `${t('profile.edit_video')} · ${title}` : t('profile.edit_video'),
@@ -145,6 +170,9 @@ export function JournalGroup({ group, date, videosById, onSaveNote, onSaveDate, 
               {i === 0 && group.planName && <span className="lg-plan">{group.planName}</span>}
               <div className="lg-item-title">
                 {title}
+                {!entry.videoId && entry.durationSeconds ? (
+                  <span className="lg-min">{t('profile.minutes_short', { count: Math.round(entry.durationSeconds / 60) })}</span>
+                ) : null}
                 {entry.loopCount && entry.loopCount > 1 && (
                   <span className="lg-loop" title={t('profile.loop_badge_aria', { count: entry.loopCount })}>{entry.loopCount}×</span>
                 )}
@@ -170,6 +198,45 @@ export function JournalGroup({ group, date, videosById, onSaveNote, onSaveDate, 
             <button type="button" disabled={busy} onClick={() => setMode('view')}>{t('profile.cancel')}</button>
           </div>
         </div>
+      ) : mode === 'mood' ? (
+        <div className="lg-edit lg-edit--mood">
+          <div className="mood-row">
+            <span className="mood-row-label">{t('mood.before')}</span>
+            <MoodPicker size="sm" label={t('mood.before')} value={group.moodBefore} disabled={busy}
+              onChange={m => { setBusy(true); onSaveMood(ids, { moodBefore: m }).finally(() => setBusy(false)); }} />
+          </div>
+          <div className="mood-row">
+            <span className="mood-row-label">{t('mood.after')}</span>
+            <MoodPicker size="sm" label={t('mood.after')} value={group.moodAfter} disabled={busy}
+              onChange={m => { setBusy(true); onSaveMood(ids, { moodAfter: m }).finally(() => setBusy(false)); }} />
+          </div>
+          <div className="lg-edit-actions">
+            <button type="button" className="is-primary" onClick={() => setMode('view')}>{t('mood.done')}</button>
+          </div>
+        </div>
+      ) : mode === 'duration' ? (
+        <div className="lg-edit lg-edit--duration">
+          <label className="lg-min-field">
+            <input
+              type="number"
+              inputMode="numeric"
+              min={1}
+              max={600}
+              value={draft}
+              autoFocus
+              aria-label={t('profile.duration_label')}
+              placeholder="45"
+              onChange={e => setDraft(e.target.value.replace(/[^0-9]/g, '').slice(0, 3))}
+              onKeyDown={e => { if (e.key === 'Enter' && !busy) finish(() => onSaveDuration(untimedIds, draft ? Number(draft) : null)); }}
+            />
+            <span>{t('profile.add.minutes')}</span>
+          </label>
+          <div className="lg-edit-actions">
+            <button type="button" className="is-primary" disabled={busy} onClick={() => finish(() => onSaveDuration(untimedIds, draft ? Number(draft) : null))}>{t('profile.save')}</button>
+            {typedMinutes ? <button type="button" disabled={busy} onClick={() => finish(() => onSaveDuration(untimedIds, null))}>{t('profile.duration_clear')}</button> : null}
+            <button type="button" disabled={busy} onClick={() => setMode('view')}>{t('profile.cancel')}</button>
+          </div>
+        </div>
       ) : mode === 'date' ? (
         <div className="lg-edit lg-edit--date">
           <input type="date" value={draft} onChange={e => setDraft(e.target.value)} />
@@ -180,6 +247,17 @@ export function JournalGroup({ group, date, videosById, onSaveNote, onSaveDate, 
         </div>
       ) : (
         <>
+          {hasMood && (
+            <button type="button" className="lg-mood" onClick={() => setMode('mood')} title={t('mood.edit')}>
+              {([['before', group.moodBefore], ['after', group.moodAfter]] as const).map(([side, level]) => level && (
+                <span key={side} className="lg-mood-part">
+                  <span className="lg-mood-label">{t(`mood.${side}`)}</span>
+                  <MoodFace level={level} size={18} />
+                  {moodLabel(level)}
+                </span>
+              ))}
+            </button>
+          )}
           {group.notes && <div className="lg-note">{group.notes}</div>}
         </>
       )}

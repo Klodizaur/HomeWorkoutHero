@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useTranslation } from 'react-i18next';
@@ -16,11 +16,37 @@ import { canFullscreen, enterFullscreen, exitFullscreen, fullscreenElement, onFu
 import YouTubeGlyph from '../components/icons/YouTubeGlyph';
 import YouTubeEmbed from '../components/YouTubeEmbed';
 import LoopControl, { formatRest } from '../components/LoopControl';
+import { asMood, Mood, MoodPicker } from '../components/mood/Mood';
+import { useMoodTracking } from '../lib/moodTracking';
+import MoodReasonDialog from '../components/mood/MoodReasonDialog';
+import { groupWorkouts, isRoughMood, MoodEntry, MoodReason } from '../lib/moodInsights';
 import { addTvBackHandler, addTvKeyInterceptor, canOpenYouTubeApp, isTv, openYouTubeApp, tvKeepScreenOn, tvVideoOpen } from '../lib/tv';
 
 type Step = { id: string; title: string; thumbnail: string | null; duration: number; done: boolean };
 
 const SPEEDS = [1, 1.25, 1.5];
+
+/**
+ * The before-mood picked at the start of a session, kept on this device until the
+ * first part is marked done (only then is there a log entry to put it on). One
+ * slot is enough — you start one session at a time — and it goes stale after
+ * half a day so an abandoned pick never lands on a later workout.
+ */
+const PENDING_BEFORE = 'pendingMoodBefore';
+function readPendingBefore(key: string): Mood | null {
+  try {
+    const saved = JSON.parse(localStorage.getItem(PENDING_BEFORE) || 'null');
+    return saved && saved.key === key && Date.now() - saved.at < 12 * 3600e3 ? asMood(saved.mood) : null;
+  } catch {
+    return null;
+  }
+}
+function writePendingBefore(key: string, mood: Mood | null) {
+  try {
+    if (mood) localStorage.setItem(PENDING_BEFORE, JSON.stringify({ key, mood, at: Date.now() }));
+    else localStorage.removeItem(PENDING_BEFORE);
+  } catch { /* not remembered; the Log can still take it */ }
+}
 
 /**
  * TV mode: move the remote's focus to the rest countdown's Skip the moment it
@@ -91,6 +117,13 @@ export default function Player() {
   // from the Library). Marking done then logs a manual workout_log entry.
   const [standalone, setStandalone] = useState(false);
   const [standaloneWorkoutId, setStandaloneWorkoutId] = useState<string | null>(null);
+  // How the user felt before starting and after finishing the session (see below).
+  const [moodBefore, setMoodBefore] = useState<Mood | null>(null);
+  const [moodAfter, setMoodAfter] = useState<Mood | null>(null);
+  const [moodSaved, setMoodSaved] = useState<'before' | 'after' | null>(null);
+  // The log, for the "what made it rough?" follow-up after a low after-mood.
+  const [logEntries, setLogEntries] = useState<MoodEntry[]>([]);
+  const [reasonOpen, setReasonOpen] = useState(false);
   const [nextVideoId, setNextVideoId] = useState<string | null>(null);
   // How this device should play this file: straight from disk, or converted on
   // the fly because it can't decode it. `playbackReady` is separate from a null
@@ -198,6 +231,85 @@ export default function Player() {
       })
       .catch(() => loadStandaloneState());
   }, [videoId, workoutId]);
+
+  // Mood, asked quietly twice per session — never per video, never required:
+  // "before" while nothing is done yet, "after" once every part is (or the lone
+  // video is). A before-mood has no log row to live on until the first part is
+  // marked done, so it waits on this device and goes in with that first mark.
+  const beforeKey = standalone || !workoutId ? `video:${videoId}` : `workout:${workoutId}`;
+  const sessionId = standalone ? standaloneWorkoutId : workoutId || null;
+  const moodOn = useMoodTracking();
+  const sessionFresh = moodOn && !isTv && showMarkDone
+    && (standalone ? !isDone : steps.length > 0 && steps.every(s => !s.done));
+  const sessionDone = moodOn && !isTv && showMarkDone && Boolean(sessionId)
+    && (standalone ? isDone : steps.length > 0 && steps.every(s => s.done));
+
+  useEffect(() => { setMoodBefore(readPendingBefore(beforeKey)); }, [beforeKey]);
+
+  const pickBefore = (next: Mood | null) => {
+    setMoodBefore(next);
+    setMoodSaved(next ? 'before' : null);
+    writePendingBefore(beforeKey, next);
+  };
+
+  useEffect(() => {
+    setMoodSaved(null);
+    setMoodAfter(null);
+    if (!sessionDone || !sessionId) return;
+    let cancelled = false;
+    // Show the mood already given for this session, if any.
+    fetch('/api/profile/history')
+      .then(res => res.json())
+      .then(data => {
+        if (cancelled) return;
+        const entry = (data.entries || []).find((e: any) => e.workoutId === sessionId && e.moodAfter);
+        setMoodAfter(asMood(entry?.moodAfter));
+        setLogEntries(data.entries || []);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [sessionDone, sessionId]);
+
+  const saveMood = async (body: { moodBefore?: Mood | null; moodAfter?: Mood | null; moodReason?: MoodReason | null }, id = sessionId) => {
+    if (!id) return false;
+    try {
+      const res = await fetch('/api/profile/history/mood', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ workoutId: id, ...body }),
+      });
+      return res.ok;
+    } catch (err) {
+      console.error('Failed to save mood', err);
+      return false;
+    }
+  };
+
+  const pickAfter = async (next: Mood | null) => {
+    const prev = moodAfter;
+    setMoodAfter(next);
+    setMoodSaved(next ? 'after' : null);
+    if (!(await saveMood({ moodAfter: next }))) {
+      setMoodAfter(prev);
+      setMoodSaved(null);
+      return;
+    }
+    // A rough one gets one gentle, skippable question — never twice for a workout.
+    const session = logEntries.filter(e => e.workoutId === sessionId);
+    const before = session.find(e => e.moodBefore)?.moodBefore ?? moodBefore;
+    if (isRoughMood(before ?? null, next) && !session.some(e => e.moodReason)) setReasonOpen(true);
+  };
+
+  const sessionWorkout = useMemo(() => {
+    const session = logEntries.filter(e => e.workoutId === sessionId);
+    return session.length ? groupWorkouts(session)[0] : null;
+  }, [logEntries, sessionId]);
+
+  const saveReason = async (reason: MoodReason) => {
+    const ok = await saveMood({ moodReason: reason });
+    if (ok) setLogEntries(prev => prev.map(e => (e.workoutId === sessionId ? { ...e, moodReason: reason } : e)));
+    return ok;
+  };
 
   // Resolve direct play vs. transcode before the <video> gets a src. Local files
   // only — an external video is played through its provider's embed.
@@ -568,6 +680,9 @@ export default function Player() {
         });
         const data = await res.json();
         if (res.ok) {
+          // The first part marked carries the before-mood given at the start.
+          const before = data.completed ? readPendingBefore(beforeKey) : null;
+          if (before && (await saveMood({ moodBefore: before }, workoutId))) writePendingBefore(beforeKey, null);
           setIsDone(data.completed);
           setSteps(list => list.map(s => (s.id === videoId ? { ...s, done: data.completed } : s)));
         }
@@ -585,10 +700,11 @@ export default function Player() {
         const res = await fetch('/api/profile/history', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ completedDate: today, videoIds: [videoId], loopCount: loggedLoops })
+          body: JSON.stringify({ completedDate: today, videoIds: [videoId], loopCount: loggedLoops, moodBefore: readPendingBefore(beforeKey) })
         });
         const data = await res.json();
         if (res.ok) {
+          writePendingBefore(beforeKey, null);
           setIsDone(true);
           setStandaloneWorkoutId(data.workoutIds?.[0] || null);
         }
@@ -1024,6 +1140,26 @@ export default function Player() {
               </div>
             )}
             <div className="pv-today-cta pv-mob-only">{primaryButton}</div>
+            {sessionFresh && (
+              <div className="pv-mood">
+                <span className="pv-mood-q" aria-live="polite">{moodSaved === 'before' ? t('mood.saved') : t('mood.question_before')}</span>
+                <MoodPicker value={moodBefore} onChange={pickBefore} label={t('mood.question_before')} size="sm" />
+              </div>
+            )}
+            {sessionDone && (
+              <div className="pv-mood">
+                <span className="pv-mood-q" aria-live="polite">{moodSaved === 'after' ? t('mood.saved') : t('mood.question_after')}</span>
+                <MoodPicker value={moodAfter} onChange={pickAfter} label={t('mood.question_after')} size="sm" />
+              </div>
+            )}
+            {reasonOpen && sessionWorkout && (
+              <MoodReasonDialog
+                workout={sessionWorkout}
+                history={logEntries}
+                onSave={saveReason}
+                onClose={() => setReasonOpen(false)}
+              />
+            )}
           </section>
         )}
 

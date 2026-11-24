@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Check, Plus, Search, SignalHigh, SignalLow, SignalMedium, X } from 'lucide-react';
-import { EQUIPMENT_ITEMS } from '../lib/equipment';
-import { TRAINING_TYPES, BODY_PARTS, INTENSITIES } from '../lib/metadata';
+import { Check, Clock, Plus, Search, SignalHigh, SignalLow, SignalMedium, X } from 'lucide-react';
+import { INTENSITIES } from '../lib/metadata';
+import { useTagCatalog } from '../lib/tagCatalog';
 import { useMetaLabels } from '../lib/labels';
 import { Video } from '../types/video';
 import Modal, { CloseButton } from './modal/Modal';
+import { Mood, MoodPicker } from './mood/Mood';
+import { useMoodTracking } from '../lib/moodTracking';
 
 const API = '';
 
@@ -22,8 +24,11 @@ type Props = {
 export default function AddLogEntryModal({ date, onClose, onSaved }: Props) {
   const { t, i18n } = useTranslation();
   const labels = useMetaLabels();
+  const catalog = useTagCatalog();
+  const moodOn = useMoodTracking();
 
   const [name, setName] = useState('');
+  const [minutes, setMinutes] = useState('');
   const [equipment, setEquipment] = useState<string[]>([]);
   const [trainingType, setTrainingType] = useState<string[]>([]);
   const [bodyParts, setBodyParts] = useState<string[]>([]);
@@ -31,6 +36,8 @@ export default function AddLogEntryModal({ date, onClose, onSaved }: Props) {
   const [videos, setVideos] = useState<Video[]>([]);
   const [query, setQuery] = useState('');
   const [selectedVideoIds, setSelectedVideoIds] = useState<string[]>([]);
+  const [moodBefore, setMoodBefore] = useState<Mood | null>(null);
+  const [moodAfter, setMoodAfter] = useState<Mood | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -82,11 +89,14 @@ export default function AddLogEntryModal({ date, onClose, onSaved }: Props) {
         body: JSON.stringify({
           completedDate: date,
           workoutName: name.trim(),
+          durationMinutes: name.trim() && minutes ? Number(minutes) : null,
           equipment,
           trainingType,
           bodyParts,
           intensity: intensity || null,
           videoIds: selectedVideoIds,
+          moodBefore: moodOn ? moodBefore : null,
+          moodAfter: moodOn ? moodAfter : null,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -144,8 +154,27 @@ export default function AddLogEntryModal({ date, onClose, onSaved }: Props) {
           <div className="md-help">{t('profile.add.name_hint')}</div>
         </div>
 
-        {chipGroup(labels.sections.trainingType, 'type', [...TRAINING_TYPES].map(v => ({ value: v, label: labels.trainingType(v) })), trainingType, setTrainingType)}
-        {chipGroup(labels.sections.bodyParts, 'body', [...BODY_PARTS].map(v => ({ value: v, label: labels.bodyPart(v) })), bodyParts, setBodyParts)}
+        <div className="md-group">
+          <div className="md-label">{t('profile.add.duration_label')}</div>
+          <label className="md-field md-field--minutes">
+            <Clock size={17} />
+            <input
+              type="number"
+              inputMode="numeric"
+              min={1}
+              max={600}
+              value={minutes}
+              onChange={e => setMinutes(e.target.value.replace(/[^0-9]/g, '').slice(0, 3))}
+              placeholder="45"
+              aria-label={t('profile.add.duration_label')}
+            />
+            <span>{t('profile.add.minutes')}</span>
+          </label>
+          <div className="md-help">{t('profile.add.duration_hint')}</div>
+        </div>
+
+        {chipGroup(labels.sections.trainingType, 'type', catalog.trainingTypes.map(v => ({ value: v, label: labels.trainingType(v) })), trainingType, setTrainingType)}
+        {chipGroup(labels.sections.bodyParts, 'body', catalog.bodyParts.map(v => ({ value: v, label: labels.bodyPart(v) })), bodyParts, setBodyParts)}
 
         <div className="md-group">
           <div className="md-label">{labels.sections.intensity}</div>
@@ -162,7 +191,7 @@ export default function AddLogEntryModal({ date, onClose, onSaved }: Props) {
           </div>
         </div>
 
-        {chipGroup(labels.sections.equipment, 'gear', EQUIPMENT_ITEMS.map(i => ({ value: i.id, label: labels.equipment(i.id) })), equipment, setEquipment)}
+        {chipGroup(labels.sections.equipment, 'gear', catalog.equipment.map(id => ({ value: id, label: labels.equipment(id) })), equipment, setEquipment)}
 
         <div className="md-group">
           <div className="md-label">{t('profile.add.videos_label')}</div>
@@ -201,6 +230,18 @@ export default function AddLogEntryModal({ date, onClose, onSaved }: Props) {
             <div className="md-help">{t('profile.add.no_videos')}</div>
           ))}
         </div>
+
+        {moodOn && <div className="md-group">
+          <div className="md-label">{t('mood.optional')}</div>
+          <div className="mood-row">
+            <span className="mood-row-label">{t('mood.before')}</span>
+            <MoodPicker label={t('mood.before')} value={moodBefore} onChange={setMoodBefore} />
+          </div>
+          <div className="mood-row">
+            <span className="mood-row-label">{t('mood.after')}</span>
+            <MoodPicker label={t('mood.after')} value={moodAfter} onChange={setMoodAfter} />
+          </div>
+        </div>}
 
         {error && <div className="md-error" role="alert">{error}</div>}
       </div>

@@ -248,6 +248,9 @@
 [data-theme='sunset'],
 [data-theme='forest'],
 [data-theme='pumpkin-patch'] {
+  /* Built-in controls (the date field's calendar icon and its pop-up calendar,
+     scrollbars) follow this, so they turn light-on-dark instead of staying black. */
+  color-scheme: dark;
   --t-success: #4ADE80;
   --t-success-bg: rgba(74, 222, 128, 0.12);
   --t-success-border: rgba(74, 222, 128, 0.35);

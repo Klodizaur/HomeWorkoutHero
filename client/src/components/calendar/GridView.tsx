@@ -4,6 +4,7 @@ import { Check, ChevronLeft, ChevronRight, Moon, Play, Snowflake } from 'lucide-
 import { useMetaLabels } from '../../lib/labels';
 import { TagRow } from '../library/LibraryCards';
 import { PlanSchedule, ScheduleDay, parseDay, scheduleVideoTags, unionDates, workoutState } from './calendarModel';
+import { NoteBlock } from './NoteDay';
 
 interface Props {
   plans: PlanSchedule[];
@@ -94,6 +95,17 @@ function GridCard({ card, today, dateLabel, dow, part, setPart, onOpen, onDetail
       <span className="cal-gc-date">{dateLabel}</span>
     </div>
   );
+
+  if (card.kind === 'workout' && card.day.workout?.placeholder) {
+    return (
+      <div className={`cal-gc is-rest${isToday ? ' is-today' : ''}`} onClick={onDetails}>
+        <div className="cal-gc-body">
+          {head}
+          <NoteBlock className="cal-gc-rest" text={card.day.workout.name} done={Boolean(card.day.workout.isCompleted)} minutes={card.day.workout.minutes} kind={card.day.workout.kind} size={24} />
+        </div>
+      </div>
+    );
+  }
 
   if (card.kind !== 'workout') {
     const frozen = card.kind === 'frozen';

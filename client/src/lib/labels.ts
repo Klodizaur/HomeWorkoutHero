@@ -12,6 +12,19 @@ import { prettyLabel } from './metadata';
  *
  * Uses useTranslation() so labels re-render when the language changes.
  */
+const LEVEL_NAMES: Record<string, string> = {
+  beginner: 'Beginner',
+  intermediate: 'Intermediate',
+  advanced: 'Advanced',
+  all: 'All levels',
+};
+
+const TYPE_GROUP_NAMES: Record<string, string> = {
+  type: 'Workout type',
+  part: 'Session part',
+  suits: 'Suits',
+};
+
 export function useMetaLabels() {
   const { t } = useTranslation();
   return {
@@ -23,12 +36,17 @@ export function useMetaLabels() {
       t(`metadata.body_part.${value}`, { defaultValue: prettyLabel(value) }),
     intensity: (value: string) =>
       t(`metadata.intensity.${value}`, { defaultValue: prettyLabel(value) }),
+    level: (value: string) =>
+      t(`metadata.level.${value}`, { defaultValue: LEVEL_NAMES[value] ?? prettyLabel(value) }),
+    typeGroup: (group: string) =>
+      t(`metadata.type_group.${group}`, { defaultValue: TYPE_GROUP_NAMES[group] ?? group }),
     // Section headings shown above the metadata groups (e.g. in the player).
     sections: {
       equipment: t('metadata.sections.equipment', { defaultValue: 'Equipment' }),
       trainingType: t('metadata.sections.training_type', { defaultValue: 'Training Type' }),
       bodyParts: t('metadata.sections.body_parts', { defaultValue: 'Body Parts' }),
       intensity: t('metadata.sections.intensity', { defaultValue: 'Intensity' }),
+      level: t('metadata.sections.level', { defaultValue: 'Level' }),
     },
     noDescription: t('metadata.no_description', { defaultValue: 'No description.' }),
   };

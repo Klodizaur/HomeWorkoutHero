@@ -264,6 +264,11 @@
 .pv-today-head { display: flex; align-items: center; gap: 12px; padding: 0 16px; }
 .pv-today-head > div:first-child { flex: 1; min-width: 0; }
 .pv-today-sub { margin-top: 2px; font-size: 13px; color: var(--t-ink-muted); }
+/* After the whole session is done: one quiet, optional row of faces. */
+.pv-mood { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 2px 16px 0; padding-top: 10px; border-top: 1px solid var(--t-border); animation: pv-mood-in 0.35s ease-out; }
+.pv-mood-q { font-size: 13px; font-weight: 600; color: var(--t-ink-muted); }
+@keyframes pv-mood-in { from { opacity: 0; transform: translateY(4px); } }
+@media (prefers-reduced-motion: reduce) { .pv-mood { animation: none; } }
 .pv-strip { display: flex; gap: 12px; overflow-x: auto; padding: 5px 16px 4px; scrollbar-width: none; }
 .pv-strip::-webkit-scrollbar { display: none; }
 .pv-step { flex: 0 0 176px; display: flex; flex-direction: column; gap: 6px; padding: 0; border: 0; background: none; color: var(--t-ink); font-family: inherit; text-align: left; cursor: pointer; }

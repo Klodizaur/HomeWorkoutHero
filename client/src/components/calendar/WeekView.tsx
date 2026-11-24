@@ -5,6 +5,7 @@ import { useMetaLabels } from '../../lib/labels';
 import { useIsMobile } from '../../lib/useIsMobile';
 import { TagRow } from '../library/LibraryCards';
 import { PlanSchedule, ScheduleDay, WorkoutState, parseDay, scheduleVideoTags, unionDates, workoutState } from './calendarModel';
+import { NoteBlock } from './NoteDay';
 
 interface Props {
   plans: PlanSchedule[];
@@ -101,7 +102,8 @@ function DayCell({ date, items, today, mobile, parts, setPart, onOpen, onDetails
   const { t, i18n } = useTranslation();
   const isToday = date === today;
   const day = parseDay(date);
-  const hasW = items.some(i => i.kind === 'workout');
+  // A note day has nothing to start either, so it behaves like rest here.
+  const hasW = items.some(i => i.kind === 'workout' && !i.day.workout?.placeholder);
   const workoutItems = items.filter(i => i.kind === 'workout');
   const allDone = hasW && workoutItems.every(i => i.day.workout?.isCompleted);
   const dow = day.toLocaleDateString(i18n.language, { weekday: 'short' });
@@ -111,6 +113,19 @@ function DayCell({ date, items, today, mobile, parts, setPart, onOpen, onDetails
   const open = () => { if (!hasW) onDetails(date); };
 
   const body = items.map(item => {
+    if (item.kind === 'workout' && item.day.workout?.placeholder) {
+      return (
+        <NoteBlock
+          key={`${item.plan.planId}:n`}
+          className="cal-rest"
+          text={item.day.workout.name}
+          done={Boolean(item.day.workout.isCompleted)}
+          minutes={item.day.workout.minutes}
+          kind={item.day.workout.kind}
+          size={mobile ? 15 : 20}
+        />
+      );
+    }
     if (item.kind !== 'workout') {
       const frozen = item.kind === 'frozen';
       return (

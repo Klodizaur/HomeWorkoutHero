@@ -9,10 +9,15 @@ import {
   ActivityCalendar, CloudItem, JournalGroup, MixChart, PlansPanel, RestGap, StatsBand, TagCloud,
 } from '../components/log/LogParts';
 import {
-  FinishedPlan, LogEntry, LogGroup, PlanProgress, formatDuration, groupEntries, pad, toDateStr,
+  FinishedPlan, LogEntry, LogGroup, PlanProgress, dayMood, formatDuration, groupEntries, pad, toDateStr,
   videoLookup,
 } from '../components/log/logModel';
 import { Video } from '../types/video';
+import type { Mood } from '../components/mood/Mood';
+import { useMoodTracking } from '../lib/moodTracking';
+import MoodSummaryCard from '../components/mood/MoodSummaryCard';
+import MoodReasonDialog from '../components/mood/MoodReasonDialog';
+import { groupWorkouts, isRoughMood, MoodReason } from '../lib/moodInsights';
 import { confirmDialog } from '../lib/confirm';
 import '../styles/log.css';
 import RangePicker, { inRange, Range, rangeBounds, useRangeLabel } from '../components/log/RangePicker';
@@ -25,6 +30,7 @@ export default function Profile() {
   const { t, i18n } = useTranslation();
   const labels = useMetaLabels();
   const navigate = useNavigate();
+  const moodOn = useMoodTracking();
 
   const [entries, setEntries] = useState<LogEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -223,6 +229,45 @@ export default function Profile() {
     }
   };
 
+  // The workout to ask "what made it rough?" about, after a low after-mood here.
+  const [reasonFor, setReasonFor] = useState<string[] | null>(null);
+  const saveMood = async (ids: string[], mood: { moodBefore?: Mood | null; moodAfter?: Mood | null; moodReason?: MoodReason | null }) => {
+    try {
+      const res = await fetch(`${API}/api/profile/history/mood`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids, ...mood }),
+      });
+      if (res.ok) await loadHistory();
+      if (res.ok && mood.moodAfter) {
+        const rows = entries.filter(e => ids.includes(e.id));
+        const before = rows.find(e => e.moodBefore)?.moodBefore ?? null;
+        if (isRoughMood(before, mood.moodAfter) && !rows.some(e => e.moodReason)) setReasonFor(ids);
+      }
+      return res.ok;
+    } catch (err) {
+      console.error('Failed to save mood', err);
+      return false;
+    }
+  };
+  const reasonWorkout = useMemo(
+    () => (reasonFor ? groupWorkouts(entries.filter(e => reasonFor.includes(e.id)))[0] ?? null : null),
+    [reasonFor, entries]
+  );
+
+  const saveDuration = async (ids: string[], minutes: number | null) => {
+    try {
+      const res = await fetch(`${API}/api/profile/history/duration`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids, minutes }),
+      });
+      if (res.ok) await loadHistory();
+    } catch (err) {
+      console.error('Failed to save duration', err);
+    }
+  };
+
   const saveDate = async (ids: string[], completedDate: string) => {
     try {
       const res = await fetch(`${API}/api/profile/history/date`, {
@@ -349,6 +394,7 @@ export default function Profile() {
         today={todayStr}
         selectedDate={selectedDate}
         countFor={d => (entriesByDate.get(d) || []).length}
+        moodFor={d => (moodOn ? dayMood(entriesByDate.get(d) || []) : null)}
         onPick={d => setSelectedDate(prev => (prev === d ? null : d))}
         onMonth={gotoMonth}
         canGoNext={`${viewYear}-${pad(viewMonth + 1)}` < todayStr.slice(0, 7)}
@@ -395,7 +441,10 @@ export default function Profile() {
                       date={date}
                       videosById={videosById}
                       onSaveNote={saveNotes}
+                      onSaveMood={saveMood}
+                      showMood={moodOn}
                       onSaveDate={saveDate}
+                      onSaveDuration={saveDuration}
                       onDelete={deleteGroup}
                       onEditVideo={setEditingVideo}
                     />
@@ -440,12 +489,24 @@ export default function Profile() {
         <TagCloud items={cloudItems} />
       </section>
 
+      {moodOn && <MoodSummaryCard entries={rangeEntries} rangeLabel={rangeLabel(range)} />}
+
       <PlansPanel started={startedPlans} finished={finishedPlans} onForget={forgetFinished} />
     </>
   );
 
+  const reasonDialog = reasonFor && reasonWorkout && (
+    <MoodReasonDialog
+      workout={reasonWorkout}
+      history={entries}
+      onSave={reason => saveMood(reasonFor, { moodReason: reason })}
+      onClose={() => setReasonFor(null)}
+    />
+  );
+
   return (
     <div className="lg">
+      {reasonDialog}
       <div className="rx-wrap lg-page">
         <header>
           <h1 className="rx-h1">{t('profile.title')}</h1>

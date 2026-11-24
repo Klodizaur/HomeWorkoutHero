@@ -6,8 +6,9 @@ import { nanoid } from 'nanoid';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import { rematchAllPlans } from '../matcher.js';
-import { getProfileSetting, PROFILE_VIDEOS, requireProfile, setProfileSetting } from '../profiles.js';
+import { currentProfileId, getProfileSetting, PROFILE_VIDEOS, requireProfile, setProfileSetting } from '../profiles.js';
 import { autoTagFromTitle } from '../autoTag.js';
+import { addCustomTag, isKnownTag, isTagKind, listCustomTags, removeCustomTag, TagError, VALID_INTENSITIES, VALID_LEVELS } from '../tags.js';
 
 const execPromise = promisify(exec);
 const THUMB_DIR = path.join(DATA_DIR, 'thumbnails');
@@ -15,34 +16,24 @@ const THUMB_DIR = path.join(DATA_DIR, 'thumbnails');
 // Supported video extensions
 const VIDEO_EXTENSIONS = ['.mp4', '.mkv', '.avi', '.mov', '.webm'];
 
-export const VALID_EQUIPMENT = [
-  'dumbbells',
-  'mat',
-  'gym_ball',
-  'resistance_bands',
-  'pilates_ball',
-  'pilates_bar',
-  'kettlebell',
-  'barbell',
-  'step',
-  'bench',
-  // Bodyweight-only. A tag rather than the absence of one, so "needs nothing"
-  // is something a video can actually say.
-  'no_equipment',
-] as const;
-
-export const VALID_TRAINING_TYPES = ['HIIT', 'Cardio', 'Strength', 'Mobility', 'Yoga', 'Pilates', 'Functional Strength Training', 'Warmup', 'Cooldown', 'Stretching', 'Standing', 'No Jumping', 'Period-Friendly'] as const;
-export const VALID_BODY_PARTS = ['full_body', 'upper_body', 'lower_body', 'core', 'back', 'legs', 'arms', 'shoulders', 'glutes', 'chest'] as const;
-export const VALID_INTENSITIES = ['low', 'medium', 'high'] as const;
+// The built-in vocabularies live in tags.ts beside the custom-tag store; they
+// are re-exported here because most of the server has always imported them
+// from this module.
+export {
+  TRAINING_TYPE_GROUPS,
+  VALID_BODY_PARTS,
+  VALID_EQUIPMENT,
+  VALID_INTENSITIES,
+  VALID_LEVELS,
+  VALID_TRAINING_TYPES,
+} from '../tags.js';
 
 function parseEquipment(raw: string | null | undefined): string[] {
   if (!raw) return [];
   try {
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
-    return parsed.filter((item): item is string =>
-      typeof item === 'string' && VALID_EQUIPMENT.includes(item as typeof VALID_EQUIPMENT[number])
-    );
+    return parsed.filter((item): item is string => isKnownTag('equipment', item));
   } catch {
     return [];
   }
@@ -53,7 +44,7 @@ function parseBodyParts(raw: string | null | undefined): string[] {
   try {
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
-    return parsed.filter((item): item is string => typeof item === 'string' && VALID_BODY_PARTS.includes(item as typeof VALID_BODY_PARTS[number]));
+    return parsed.filter((item): item is string => isKnownTag('body_part', item));
   } catch {
     return [];
   }
@@ -65,8 +56,7 @@ function parseBodyParts(raw: string | null | undefined): string[] {
 // were never re-saved).
 function parseTrainingTypes(raw: string | null | undefined): string[] {
   if (!raw) return [];
-  const whitelist = (item: unknown): item is string =>
-    typeof item === 'string' && (VALID_TRAINING_TYPES as readonly string[]).includes(item);
+  const whitelist = (item: unknown): item is string => isKnownTag('training_type', item);
   try {
     const parsed = JSON.parse(raw);
     if (Array.isArray(parsed)) return parsed.filter(whitelist);
@@ -81,7 +71,7 @@ function parseTrainingTypes(raw: string | null | undefined): string[] {
 /** Columns every endpoint needs to build a client-shaped video object. */
 /** Columns every endpoint needs to build a client-shaped video object (from PROFILE_VIDEOS). */
 export const VIDEO_COLUMNS =
-  'id, filename, relative_path, thumbnail_path, description, equipment, training_type, body_parts, intensity, duration_seconds, source, external_id, external_url, external_playlist_id, external_playlist_title, is_favorite, added_at, file_created_at, in_library';
+  'id, filename, relative_path, thumbnail_path, description, equipment, training_type, body_parts, intensity, duration_seconds, source, external_id, external_url, external_playlist_id, external_playlist_title, is_favorite, added_at, file_created_at, in_library, level';
 
 export function formatVideoRow(row: {
   id: string;
@@ -103,6 +93,7 @@ export function formatVideoRow(row: {
   added_at?: string | null;
   file_created_at?: string | null;
   in_library?: number | null;
+  level?: string | null;
 }) {
   return {
     id: row.id,
@@ -130,6 +121,7 @@ export function formatVideoRow(row: {
     // False for a video that's only here for one of your plans: the plan can
     // play it, but the Library doesn't list it.
     in_library: row.in_library !== 0,
+    level: (VALID_LEVELS as readonly string[]).includes(row.level || '') ? row.level! : '',
   };
 }
 
@@ -268,15 +260,34 @@ async function generateThumbnail(videoPath: string, thumbId: string) {
   }
 }
 
-// Progress of the in-flight library scan, polled by the Settings page while the
-// (potentially long) /set-directory request is still running. Single-user local
-// app, so one module-level slot is enough.
+// The library scan: one at a time for the whole server, whoever started it —
+// the Settings page, the Library page's Rescan button or the auto-scan timer.
+// Its progress sits in one module-level slot that every page polls, so a scan
+// started anywhere is visible everywhere (the app-wide scan pop-up).
+export type ScanTrigger = 'settings' | 'library' | 'auto';
+
+export interface ScanSummary {
+  count: number;
+  added: number;
+  removed: number;
+  skippedCleanup: boolean;
+  unreadableCount: number;
+  unreadableSample: string[];
+  error?: string;
+}
+
 const scanProgress = {
   active: false,
   phase: 'idle' as 'idle' | 'discovering' | 'processing' | 'done',
   processed: 0,
   total: 0,
   currentFile: '' as string,
+  /** Goes up by one per scan, so a pop-up closed for one scan comes back for the next. */
+  id: 0,
+  profileId: '' as string,
+  trigger: 'settings' as ScanTrigger,
+  /** How the last scan ended; kept after it finishes so the pop-up can say so. */
+  result: null as ScanSummary | null,
 };
 
 function resetScanProgress() {
@@ -285,54 +296,27 @@ function resetScanProgress() {
   scanProgress.processed = 0;
   scanProgress.total = 0;
   scanProgress.currentFile = '';
+  scanProgress.result = null;
 }
 
-export default async function (fastify: FastifyInstance) {
-  fastify.get('/scan-progress', async (_request, reply) => {
-    return reply.send(scanProgress);
-  });
+export function isScanRunning(): boolean {
+  return scanProgress.active;
+}
 
-  fastify.post('/set-directory', async (request, reply) => {
-    const profileId = requireProfile(request, reply);
-    if (!profileId) return;
-    const { directory } = request.body as { directory: string };
-
-    // Normalize: trim whitespace and expand ~ on Unix-like systems
-    let normalizedDir = directory.trim();
-
-    if (normalizedDir.startsWith('~')) {
-      const home = process.env.HOME || process.env.USERPROFILE || '~';
-      normalizedDir = normalizedDir.replace(/^~/, home);
-    }
-
-    // On Unix-like systems, allow "Users/..." or "home/..." by prepending /
-    if (process.platform !== 'win32' && !path.isAbsolute(normalizedDir)) {
-      normalizedDir = '/' + normalizedDir;
-    }
-
-// Normalize the path for the current operating system
-normalizedDir = path.resolve(normalizedDir);
-
-    let isValidDir = false;
-    try {
-      isValidDir = fs.existsSync(normalizedDir) && fs.statSync(normalizedDir).isDirectory();
-    } catch (err) {
-      isValidDir = false;
-    }
-
-    if (!isValidDir) {
-      return reply.code(400).send({ error: `Invalid directory path: "${normalizedDir}" - Please check it exists and is accessible.` });
-    }
-
-    // Report progress from here on; the client polls /scan-progress meanwhile.
+/**
+ * Scans a profile's folder: adds new videos, updates known ones and, only when
+ * the whole folder could be read, removes the ones that are gone. Callers check
+ * isScanRunning() first; two scans at once would trip over each other.
+ */
+export async function runLibraryScan(profileId: string, normalizedDir: string, trigger: ScanTrigger): Promise<ScanSummary> {
     resetScanProgress();
     scanProgress.active = true;
     scanProgress.phase = 'discovering';
+    scanProgress.id++;
+    scanProgress.profileId = profileId;
+    scanProgress.trigger = trigger;
 
     try {
-    // The folder is this profile's own; someone else's is untouched.
-    setProfileSetting(profileId, 'video_directory', normalizedDir);
-
     // Every local video already known, whoever's library it's in, so a file two
     // profiles share keeps one row (and its tags). Scoped to local videos:
     // external (YouTube) rows have no file on disk and must never be touched by
@@ -354,6 +338,7 @@ normalizedDir = path.resolve(normalizedDir);
     // Scan directory
     const { files: videoFiles, unreadable } = scanDirectory(normalizedDir, excludePaths);
     const scannedIds = new Set<string>();
+    let added = 0;
 
     scanProgress.phase = 'processing';
     scanProgress.total = videoFiles.length;
@@ -376,6 +361,7 @@ normalizedDir = path.resolve(normalizedDir);
       } else {
         // Insert new video
         id = nanoid();
+        added++;
         const thumbnailPath = await generateThumbnail(file, id);
         const duration = await probeDuration(file);
         // Seeded from the file name and its folders ("Legs/hantle_20min.mp4"),
@@ -468,22 +454,109 @@ normalizedDir = path.resolve(normalizedDir);
     rematchAllPlans(profileId);
 
     scanProgress.phase = 'done';
-    return reply.send({
-      success: true,
+    const summary: ScanSummary = {
       count: videoFiles.length,
+      added,
       removed,
       // The client warns rather than reporting a clean scan, so a folder that
       // has silently become unreadable is visible instead of looking empty.
       skippedCleanup: !canReconcile,
       unreadableCount: unreadable.length,
       unreadableSample: unreadable.slice(0, 3),
-    });
+    };
+    scanProgress.result = summary;
+    return summary;
+    } catch (err) {
+      scanProgress.phase = 'done';
+      scanProgress.result = {
+        count: 0, added: 0, removed: 0, skippedCleanup: true, unreadableCount: 0, unreadableSample: [],
+        error: err instanceof Error ? err.message : String(err),
+      };
+      throw err;
     } finally {
       // The client reads the final counts from the response, so the shared slot
       // is released either way — including when the scan throws partway through.
       scanProgress.active = false;
       scanProgress.currentFile = '';
     }
+}
+
+const MAX_PINS = 50;
+const MAX_PIN_KEY = 500;
+
+function readPins(profileId: string): string[] {
+  try {
+    const value = JSON.parse(getProfileSetting(profileId, 'pinned_folders') || '[]');
+    return Array.isArray(value) ? value.filter((k): k is string => typeof k === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+export default async function (fastify: FastifyInstance) {
+  fastify.get('/scan-progress', async (request, reply) => {
+    // `mine` says whether the scan is the asking profile's own, so the pop-up
+    // only shows people their own library being scanned.
+    const { profileId, ...progress } = scanProgress;
+    return reply.send({ ...progress, mine: profileId !== '' && profileId === currentProfileId(request) });
+  });
+
+  fastify.post('/set-directory', async (request, reply) => {
+    const profileId = requireProfile(request, reply);
+    if (!profileId) return;
+    const { directory } = request.body as { directory: string };
+
+    // Normalize: trim whitespace and expand ~ on Unix-like systems
+    let normalizedDir = directory.trim();
+
+    if (normalizedDir.startsWith('~')) {
+      const home = process.env.HOME || process.env.USERPROFILE || '~';
+      normalizedDir = normalizedDir.replace(/^~/, home);
+    }
+
+    // On Unix-like systems, allow "Users/..." or "home/..." by prepending /
+    if (process.platform !== 'win32' && !path.isAbsolute(normalizedDir)) {
+      normalizedDir = '/' + normalizedDir;
+    }
+
+// Normalize the path for the current operating system
+normalizedDir = path.resolve(normalizedDir);
+
+    let isValidDir = false;
+    try {
+      isValidDir = fs.existsSync(normalizedDir) && fs.statSync(normalizedDir).isDirectory();
+    } catch (err) {
+      isValidDir = false;
+    }
+
+    if (!isValidDir) {
+      return reply.code(400).send({ error: `Invalid directory path: "${normalizedDir}" - Please check it exists and is accessible.` });
+    }
+
+    // One scan at a time: a second one would fight the first over the same rows.
+    if (scanProgress.active) {
+      return reply.code(409).send({ error: 'A library scan is already running. Try again when it finishes.', busy: true });
+    }
+
+    // The folder is this profile's own; someone else's is untouched.
+    setProfileSetting(profileId, 'video_directory', normalizedDir);
+    const summary = await runLibraryScan(profileId, normalizedDir, 'settings');
+    return reply.send({ success: true, ...summary });
+  });
+
+  // The Library page's Rescan button: the saved folder again, in the
+  // background. The app-wide pop-up reports progress and the result.
+  fastify.post('/rescan', async (request, reply) => {
+    const profileId = requireProfile(request, reply);
+    if (!profileId) return;
+    const dir = getProfileSetting(profileId, 'video_directory');
+    if (!dir) return reply.code(400).send({ error: 'no_directory' });
+    if (scanProgress.active) return reply.code(409).send({ error: 'busy', busy: true });
+    let exists = false;
+    try { exists = fs.statSync(dir).isDirectory(); } catch { exists = false; }
+    if (!exists) return reply.code(400).send({ error: 'missing_directory' });
+    runLibraryScan(profileId, dir, 'library').catch(err => console.error('[Library] Rescan failed:', err));
+    return reply.send({ started: true, id: scanProgress.id });
   });
 
   fastify.get('/videos', async (request, reply) => {
@@ -513,7 +586,7 @@ normalizedDir = path.resolve(normalizedDir);
     const profileId = requireProfile(request, reply);
     if (!profileId) return;
     const { id } = request.params as { id: string };
-    const body = request.body as { description?: string; equipment?: string[]; training_type?: string[]; body_parts?: string[]; intensity?: string };
+    const body = request.body as { description?: string; equipment?: string[]; training_type?: string[]; body_parts?: string[]; intensity?: string; level?: string };
 
     // Tags and descriptions are shared (a video is the same video for everyone),
     // but only someone with the video in their library can edit them.
@@ -524,26 +597,94 @@ normalizedDir = path.resolve(normalizedDir);
 
     const description = typeof body.description === 'string' ? body.description.trim() : '';
     const equipment = Array.isArray(body.equipment)
-      ? body.equipment.filter((item): item is string =>
-          typeof item === 'string' && VALID_EQUIPMENT.includes(item as typeof VALID_EQUIPMENT[number])
-        )
+      ? body.equipment.filter((item): item is string => isKnownTag('equipment', item))
       : [];
 
     const training_type = Array.isArray(body.training_type)
-      ? body.training_type.filter((item): item is string => typeof item === 'string' && (VALID_TRAINING_TYPES as readonly string[]).includes(item))
+      ? body.training_type.filter((item): item is string => isKnownTag('training_type', item))
       : [];
 
     const body_parts = Array.isArray(body.body_parts)
-      ? body.body_parts.filter((item): item is string => typeof item === 'string' && (VALID_BODY_PARTS as readonly string[]).includes(item))
+      ? body.body_parts.filter((item): item is string => isKnownTag('body_part', item))
       : [];
 
     const intensity = typeof body.intensity === 'string' && (VALID_INTENSITIES as readonly string[]).includes(body.intensity) ? body.intensity : '';
 
+    // Level is optional on the request so older clients that don't send it
+    // leave whatever is stored (often filled in from the video's profile).
+    const level = body.level === undefined
+      ? undefined
+      : (VALID_LEVELS as readonly string[]).includes(body.level) ? body.level : '';
+
     db.prepare('UPDATE videos SET description = ?, equipment = ?, training_type = ?, body_parts = ?, intensity = ? WHERE id = ?')
       .run(description, JSON.stringify(equipment), JSON.stringify(training_type), JSON.stringify(body_parts), intensity, id);
+    if (level !== undefined) {
+      db.prepare('UPDATE videos SET level = ? WHERE id = ?').run(level || null, id);
+    }
 
     const updated = db.prepare(`SELECT ${VIDEO_COLUMNS} FROM ${PROFILE_VIDEOS} AS videos WHERE id = ?`).get(profileId, id) as any;
 
     return reply.send(formatVideoRow(updated));
+  });
+
+  /** Tags people have added on top of the built-in lists, by kind. */
+  // Pinned folders: this profile's own shortcuts at the top of the Library,
+  // newest pin first. Stored as folder keys (a top-level folder's name, "." for
+  // loose files, or an imported playlist's key); a key whose folder has since
+  // gone is simply not shown.
+  fastify.get('/pins', async (request, reply) => {
+    const profileId = requireProfile(request, reply);
+    if (!profileId) return;
+    return reply.send({ pins: readPins(profileId) });
+  });
+
+  fastify.post('/pins', async (request, reply) => {
+    const profileId = requireProfile(request, reply);
+    if (!profileId) return;
+    const { key, pinned } = (request.body ?? {}) as { key?: unknown; pinned?: unknown };
+    if (typeof key !== 'string' || !key || key.length > MAX_PIN_KEY || typeof pinned !== 'boolean') {
+      return reply.code(400).send({ error: 'Expected { key, pinned }.' });
+    }
+    const rest = readPins(profileId).filter(k => k !== key);
+    const pins = pinned ? [key, ...rest].slice(0, MAX_PINS) : rest;
+    setProfileSetting(profileId, 'pinned_folders', JSON.stringify(pins));
+    return reply.send({ pins });
+  });
+
+  fastify.get('/tags', async (request, reply) => {
+    if (!requireProfile(request, reply)) return;
+    return reply.send({ custom: listCustomTags() });
+  });
+
+  /** Add a tag. Answers with the stored value, which may be an existing one. */
+  fastify.post('/tags', async (request, reply) => {
+    if (!requireProfile(request, reply)) return;
+    const body = request.body as { kind?: unknown; label?: unknown };
+    if (!isTagKind(body?.kind) || typeof body?.label !== 'string') {
+      return reply.code(400).send({ error: 'bad_request' });
+    }
+    try {
+      const value = addCustomTag(body.kind, body.label);
+      return reply.send({ value, custom: listCustomTags() });
+    } catch (err) {
+      if (err instanceof TagError) return reply.code(400).send({ error: err.code, message: err.message });
+      throw err;
+    }
+  });
+
+  /** Remove a custom tag, taking it off every video that has it. */
+  fastify.delete('/tags', async (request, reply) => {
+    if (!requireProfile(request, reply)) return;
+    const body = request.body as { kind?: unknown; value?: unknown };
+    if (!isTagKind(body?.kind) || typeof body?.value !== 'string') {
+      return reply.code(400).send({ error: 'bad_request' });
+    }
+    try {
+      const videos = removeCustomTag(body.kind, body.value);
+      return reply.send({ videos, custom: listCustomTags() });
+    } catch (err) {
+      if (err instanceof TagError) return reply.code(404).send({ error: err.code });
+      throw err;
+    }
   });
 }

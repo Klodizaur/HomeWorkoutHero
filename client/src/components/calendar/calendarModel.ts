@@ -22,6 +22,12 @@ export interface ScheduleDay {
     id: string;
     name: string;
     sequence_order: number;
+    /** A text-only day (its name is the note): nothing to play, can be marked done. */
+    placeholder?: boolean;
+    /** A placeholder's planned length in minutes, when given. */
+    minutes?: number | null;
+    /** What a text day is: videos still to come, or an activity of its own. */
+    kind?: 'placeholder' | 'activity' | null;
     videos: ScheduleVideo[];
     isCompleted?: boolean;
     videosCompletedCount: number;

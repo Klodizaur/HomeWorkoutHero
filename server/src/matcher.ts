@@ -66,8 +66,8 @@ export function matchVideo(name: string, videos: { id: string; filename: string 
 export function rematchPlanWorkouts(planId: string) {
   const owner = (db.prepare('SELECT profile_id FROM workout_plans WHERE id = ?').get(planId) as { profile_id?: string } | undefined)?.profile_id;
   if (!owner) return;
-  const workouts = db.prepare('SELECT id, name, video_ids FROM workouts WHERE plan_id = ?').all(planId) as
-    { id: string; name: string; video_ids: string | null }[];
+  const workouts = db.prepare('SELECT id, name, video_ids, placeholder FROM workouts WHERE plan_id = ?').all(planId) as
+    { id: string; name: string; video_ids: string | null; placeholder: number }[];
 
   // Match against local videos only. External videos are bound by explicit ID at
   // import time, never by filename, so letting them into the candidate pool
@@ -97,6 +97,8 @@ export function rematchPlanWorkouts(planId: string) {
       // (the joined video titles), which would rebind a YouTube title onto some
       // similarly-named local file. Leave these exactly as the user set them.
       if (currentIds.some(id => externalIds.has(id))) continue;
+      // A placeholder's name is a note ("Swimming"), not video titles to match.
+      if (w.placeholder) continue;
 
       const videoNames = w.name.split('\n');
       const videoIds: string[] = [];

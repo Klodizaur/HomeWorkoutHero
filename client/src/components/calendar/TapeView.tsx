@@ -7,6 +7,7 @@ import { TagRow } from '../library/LibraryCards';
 import {
   PlanSchedule, ScheduleDay, nextWorkoutAfter, parseDay, scheduleVideoTags, unionDates, workoutState,
 } from './calendarModel';
+import { NoteEntry } from './NoteDay';
 
 interface Props {
   plans: PlanSchedule[];
@@ -18,6 +19,8 @@ interface Props {
   onUnfreeze: (planId: string, date: string) => void;
   /** `${planId}:${date}` of the day being unfrozen, so only its button disables. */
   busyKey: string | null;
+  /** Marks a note (placeholder) day done or not, then refreshes. */
+  onToggleNote?: (workoutId: string) => Promise<unknown> | void;
 }
 
 const planTag = (slot: 'main' | 'extra') => (slot === 'main' ? 'main' : 'extra');
@@ -26,7 +29,7 @@ const planTag = (slot: 'main' | 'extra') => (slot === 'main' ? 'main' : 'extra')
  * The tape: a strip of day pills grouped into week bands, and beneath it the
  * open day — one card per plan that has something on it.
  */
-export default function TapeView({ plans, selectedDate, onSelect, today, onOpen, onFreeze, onUnfreeze, busyKey }: Props) {
+export default function TapeView({ plans, selectedDate, onSelect, today, onOpen, onFreeze, onUnfreeze, busyKey , onToggleNote}: Props) {
   const { t, i18n } = useTranslation();
   const isMobile = useIsMobile();
   const scrollerRef = useRef<HTMLDivElement>(null);
@@ -154,6 +157,16 @@ export default function TapeView({ plans, selectedDate, onSelect, today, onOpen,
                 busy={busyKey === key}
                 onUnfreeze={() => onUnfreeze(plan.planId, selectedDate)}
               />
+            );
+          }
+
+          if (day.workout?.placeholder) {
+            const w = day.workout;
+            return (
+              <div key={key} className="cal-entry cal-entry--rest rx-card cal-entry--note">
+                <PlanLine plan={plan} />
+                <NoteEntry text={w.name} done={Boolean(w.isCompleted)} minutes={w.minutes} kind={w.kind} iconSize={22} onToggle={onToggleNote ? () => onToggleNote(w.id) : undefined} />
+              </div>
             );
           }
 

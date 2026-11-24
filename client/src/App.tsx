@@ -9,6 +9,7 @@ import Plans from './pages/Plans';
 import Library from './pages/Library';
 import Album from './pages/Album';
 import AiCleanupProgress from './components/ai/AiCleanupProgress';
+import ScanProgress from './components/ScanProgress';
 import AppShell from './components/AppShell';
 import ProfileGate from './components/profiles/ProfileGate';
 import TvRouteSync from './components/TvRouteSync';
@@ -54,6 +55,9 @@ function App() {
         {/* Renders nothing unless a bulk description clean-up is running, so a
             run started on an album keeps reporting across navigation. */}
         <AiCleanupProgress />
+        {/* A library scan running in the background (Rescan, auto-scan). The
+            TV has no folder settings, so it doesn't report them either. */}
+        {!isTv && <ScanProgress />}
         {isTv && <TvRouteSync />}
       </AppShell>
     </ProfileGate>

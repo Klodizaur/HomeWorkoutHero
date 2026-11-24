@@ -18,6 +18,7 @@ import {
   getCleanJob,
   startCleanJob,
 } from '../ai/descriptionCleaner.js';
+import { nudgeVideoProfiler, videoProfileStatus } from '../ai/videoProfiler.js';
 import {
   AiProvider,
   aiProfile,
@@ -26,18 +27,14 @@ import {
   isLocalBaseUrl,
   saveAiSettings,
 } from '../ai/settings.js';
-import {
-  VALID_BODY_PARTS,
-  VALID_EQUIPMENT,
-  VALID_INTENSITIES,
-  VALID_TRAINING_TYPES,
-} from './library.js';
+import { VALID_INTENSITIES, VALID_LEVELS } from './library.js';
+import { isKnownTag, TagKind } from '../tags.js';
 import { getProfileSetting, profileHook, requireProfile } from '../profiles.js';
 
-/** Keep list inputs to values the library actually uses. */
-function whitelist(value: unknown, allowed: readonly string[]): string[] {
+/** Keep list inputs to tags that exist, built in or custom. */
+function knownTags(value: unknown, kind: TagKind): string[] {
   if (!Array.isArray(value)) return [];
-  return value.filter((item): item is string => typeof item === 'string' && allowed.includes(item));
+  return value.filter((item): item is string => isKnownTag(kind, item));
 }
 
 function strings(value: unknown, limit = 200): string[] {
@@ -83,6 +80,7 @@ export default async function (fastify: FastifyInstance) {
       model: settings.model,
       descriptionLanguage: settings.descriptionLanguage,
       planFlow: settings.planFlow,
+      videoProfiles: settings.videoProfiles,
       hasKey: Boolean(settings.apiKey),
       isLocal: isLocalBaseUrl(settings.baseUrl),
       available: isAiConfigured(settings),
@@ -107,6 +105,7 @@ export default async function (fastify: FastifyInstance) {
       provider,
       apiKey,
       planFlow: body?.planFlow === 'guided' || body?.planFlow === 'all' ? body.planFlow : undefined,
+      videoProfiles: typeof body?.videoProfiles === 'boolean' ? body.videoProfiles : undefined,
       baseUrl: typeof body?.baseUrl === 'string' ? body.baseUrl : undefined,
       model: typeof body?.model === 'string' ? body.model : undefined,
       descriptionLanguage:
@@ -114,6 +113,7 @@ export default async function (fastify: FastifyInstance) {
     });
 
     const settings = getAiSettings();
+    if (settings.videoProfiles) nudgeVideoProfiler(request.profileId);
     return reply.send({
       success: true,
       provider: settings.provider,
@@ -121,6 +121,7 @@ export default async function (fastify: FastifyInstance) {
       model: settings.model,
       descriptionLanguage: settings.descriptionLanguage,
       planFlow: settings.planFlow,
+      videoProfiles: settings.videoProfiles,
       hasKey: Boolean(settings.apiKey),
       available: isAiConfigured(settings),
     });
@@ -194,6 +195,17 @@ export default async function (fastify: FastifyInstance) {
     }
   });
 
+  /**
+   * How far the background video profiles have got for this profile's library.
+   * Read by the one status line under the setting; nothing else in the UI.
+   */
+  fastify.get('/video-profiles/status', async (request, reply) => {
+    return reply.send({
+      enabled: getAiSettings().videoProfiles,
+      ...videoProfileStatus(request.profileId),
+    });
+  });
+
   /** Progress for the running (or last finished) clean-up. */
   fastify.get('/clean-descriptions/status', async (_request, reply) => {
     return reply.send({ job: getCleanJob() });
@@ -233,9 +245,10 @@ export default async function (fastify: FastifyInstance) {
         // use (sent by the builder), falling back to the global default.
         daysPerWeek: trainingDaysFromWorkoutPattern(profileId, body?.workoutPattern),
         maxMinutes: Number(body?.maxMinutes) || 0,
-        equipment: whitelist(body?.equipment, VALID_EQUIPMENT),
-        trainingTypes: whitelist(body?.trainingTypes, VALID_TRAINING_TYPES),
-        bodyParts: whitelist(body?.bodyParts, VALID_BODY_PARTS),
+        equipment: knownTags(body?.equipment, 'equipment'),
+        trainingTypes: knownTags(body?.trainingTypes, 'training_type'),
+        bodyParts: knownTags(body?.bodyParts, 'body_part'),
+        level: typeof body?.level === 'string' && (VALID_LEVELS as readonly string[]).includes(body.level) ? body.level : '',
         intensity:
           typeof body?.intensity === 'string' &&
           (VALID_INTENSITIES as readonly string[]).includes(body.intensity)

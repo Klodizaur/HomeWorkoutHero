@@ -3,15 +3,14 @@ import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import {
   ArrowRight, ArrowUpDown, Check, ChevronDown, ChevronLeft, ChevronRight, GripVertical, Moon,
-  MoreHorizontal, Plus, Search, SlidersHorizontal, Trash2, X,
-} from 'lucide-react';
-import { BuilderWeek, builderRhythms, createWeek, DAYS_PER_WEEK, relayoutWeeks, slotsForWeek } from '../../lib/builderModel';
+  Activity, MoreHorizontal, Pencil, Plus, Search, SlidersHorizontal, Trash2, X, StickyNote } from 'lucide-react';
+import { BuilderWeek, builderRhythms, createWeek, DAYS_PER_WEEK, relayoutWeeks, slotsForWeek, dayIsFilled } from '../../lib/builderModel';
 import RhythmEditor from './RhythmEditor';
 import { EMPTY_LENGTH, isLengthActive, LengthRange, matchesLength, matchesQuery, matchesTags } from '../../lib/filters';
 import LengthFilter from '../library/LengthFilter';
 import { useMetaLabels } from '../../lib/labels';
-import { BODY_PARTS, INTENSITIES, TRAINING_TYPES } from '../../lib/metadata';
-import { EQUIPMENT_ITEMS } from '../../lib/equipment';
+import { INTENSITIES } from '../../lib/metadata';
+import { useTagCatalog } from '../../lib/tagCatalog';
 import { albumKeyForVideo, isExternalAlbumKey } from '../../lib/paths';
 import { useIsMobile } from '../../lib/useIsMobile';
 import { formatDuration, stripVideoExt, useVideoTags } from '../../lib/videoTags';
@@ -74,9 +73,12 @@ type Tab = 'details' | 'schedule';
  * room for two panes, so the library becomes a sheet opened from the day you're
  * filling.
  */
+const RHYTHM_NOTE_KEY = 'builderRhythmNoteHidden';
+
 export default function PlanBuilderScreen(props: PlanBuilderScreenProps) {
   const { t } = useTranslation();
   const labels = useMetaLabels();
+  const catalog = useTagCatalog();
   const rootName = useRootFolderName();
   const isMobile = useIsMobile();
   const tagsFor = useVideoTags();
@@ -151,7 +153,7 @@ export default function PlanBuilderScreen(props: PlanBuilderScreenProps) {
   const week = props.weeks[props.currentWeek];
   const day = week?.days[props.currentDay];
   const filledDays = props.weeks.reduce(
-    (n, w) => n + w.days.filter(d => d.videoIds.length > 0).length, 0);
+    (n, w) => n + w.days.filter(dayIsFilled).length, 0);
 
   const byId = useMemo(
     () => new Map(props.videos.map(v => [v.id, v])),
@@ -193,6 +195,28 @@ export default function PlanBuilderScreen(props: PlanBuilderScreenProps) {
     });
     return sortVideos(found, sort);
   }, [props.videos, folder, query, equipment, trainingType, bodyParts, intensity, length, sort]);
+
+  // The rhythm / placeholder explainer above the days: closed for good on this
+  // device once read.
+  const [rhythmNoteHidden, setRhythmNoteHidden] = useState(() => {
+    try { return localStorage.getItem(RHYTHM_NOTE_KEY) === '1'; } catch { return false; }
+  });
+  const hideRhythmNote = () => {
+    setRhythmNoteHidden(true);
+    try { localStorage.setItem(RHYTHM_NOTE_KEY, '1'); } catch { /* memory only */ }
+  };
+
+  const setDayPlaceholder = (text: string | undefined, minutes?: number, kind?: 'activity') => {
+    props.onWeeks(props.weeks.map((w, wi) => wi !== props.currentWeek ? w : {
+      ...w,
+      days: w.days.map((d, di) => di !== props.currentDay ? d : {
+        ...d,
+        placeholder: text,
+        placeholderMinutes: text === undefined ? undefined : minutes,
+        placeholderKind: text === undefined ? undefined : kind,
+      }),
+    }));
+  };
 
   const setDayVideos = (next: string[]) => {
     props.onWeeks(props.weeks.map((w, wi) => wi !== props.currentWeek ? w : {
@@ -265,6 +289,8 @@ export default function PlanBuilderScreen(props: PlanBuilderScreenProps) {
             <option value="za">{t('library.sort_za')}</option>
             <option value="size">{t('library.sort_longest')}</option>
             <option value="small">{t('library.sort_shortest')}</option>
+            <option value="done">{t('library.sort_most_done')}</option>
+            <option value="undone">{t('library.sort_least_done')}</option>
             <option value="newest">{t('library.sort_newest')}</option>
             <option value="oldest">{t('library.sort_oldest')}</option>
           </select>
@@ -275,9 +301,9 @@ export default function PlanBuilderScreen(props: PlanBuilderScreenProps) {
         <div className="pb-filters">
           {([
             ['intensity', labels.sections.intensity, [...INTENSITIES].map(v => ({ value: v, label: labels.intensity(v) })), intensity, setIntensity],
-            ['type', labels.sections.trainingType, [...TRAINING_TYPES].map(v => ({ value: v, label: labels.trainingType(v) })), trainingType, setTrainingType],
-            ['body', labels.sections.bodyParts, [...BODY_PARTS].map(v => ({ value: v, label: labels.bodyPart(v) })), bodyParts, setBodyParts],
-            ['gear', labels.sections.equipment, EQUIPMENT_ITEMS.map(i => ({ value: i.id, label: labels.equipment(i.id) })), equipment, setEquipment],
+            ['type', labels.sections.trainingType, catalog.trainingTypes.map(v => ({ value: v, label: labels.trainingType(v) })), trainingType, setTrainingType],
+            ['body', labels.sections.bodyParts, catalog.bodyParts.map(v => ({ value: v, label: labels.bodyPart(v) })), bodyParts, setBodyParts],
+            ['gear', labels.sections.equipment, catalog.equipment.map(id => ({ value: id, label: labels.equipment(id) })), equipment, setEquipment],
           ] as const).map(([cat, label, items, selected, setSelected]) => (
             <div key={cat} className="pb-filter-group">
               <div className="pb-filter-label">{label}</div>
@@ -378,7 +404,7 @@ export default function PlanBuilderScreen(props: PlanBuilderScreenProps) {
         <button type="button" className="pb-day-head" onClick={() => props.onCurrentDay(dayIndex)}>
           <span className="pb-day-label">{t('plans.builder_day_n', { n: dayIndex + 1 })}</span>
           <span className="pb-day-preview">
-            {selected ? '' : first ? stripVideoExt(first.filename) : t('plans.builder_empty_day')}
+            {selected ? '' : first ? stripVideoExt(first.filename) : d.placeholder?.trim() ? d.placeholder.trim() : t('plans.builder_empty_day')}
           </span>
           {selected && isMobile && (
             <>
@@ -437,16 +463,33 @@ export default function PlanBuilderScreen(props: PlanBuilderScreenProps) {
               );
             })}
 
-            {d.videoIds.length === 0 && (
-              <div className="pb-day-empty">
-                {isMobile ? t('plans.builder_no_videos_yet') : t('plans.builder_no_videos_yet_desktop')}
-              </div>
+            {/* No videos yet: the day can hold its place with a note instead,
+                shown in the plan like a rest day, with no player. The field
+                only appears once asked for, so an empty day stays quiet. */}
+            {d.videoIds.length === 0 && d.placeholder === undefined && !isMobile && (
+              <div className="pb-day-empty">{t('plans.builder_no_videos_yet_desktop')}</div>
+            )}
+            {d.videoIds.length === 0 && d.placeholder !== undefined && (
+              <DayPlaceholder
+                key={`${props.currentWeek}-${props.currentDay}`}
+                value={d.placeholder}
+                minutes={d.placeholderMinutes}
+                kind={d.placeholderKind}
+                onSave={setDayPlaceholder}
+                onRemove={() => setDayPlaceholder(undefined)}
+              />
             )}
 
             {isMobile && (
               <button type="button" className="rx-btn rx-btn--primary pb-add-btn" onClick={() => setPickerOpen(true)}>
                 <Plus size={17} />
                 {t('plans.builder_add_videos')}
+              </button>
+            )}
+            {d.videoIds.length === 0 && d.placeholder === undefined && (
+              <button type="button" className="pb-daynote-link" onClick={() => setDayPlaceholder('')}>
+                <StickyNote size={14} aria-hidden />
+                {t('plans.builder_note_add')}
               </button>
             )}
           </div>
@@ -604,7 +647,7 @@ export default function PlanBuilderScreen(props: PlanBuilderScreenProps) {
                 >
                   {t('plans.builder_week_n', { n: i + 1 })}
                   <span className="pb-week-count">
-                    {w.days.filter(d => d.videoIds.length > 0).length}/{slotsFor(i)}
+                    {w.days.filter(dayIsFilled).length}/{slotsFor(i)}
                   </span>
                 </button>
               ))}
@@ -639,7 +682,14 @@ export default function PlanBuilderScreen(props: PlanBuilderScreenProps) {
               </div>
             )}
 
-            <p className="pb-note">{t('plans.builder_empty_days_note')}</p>
+            {!rhythmNoteHidden && (
+              <p className="pb-note pb-note--closable">
+                <span>{t('plans.builder_empty_days_note')}</span>
+                <button type="button" className="pb-note-close" aria-label={t('plans.builder_note_dismiss')} title={t('plans.builder_note_dismiss')} onClick={hideRhythmNote}>
+                  <X size={14} />
+                </button>
+              </p>
+            )}
 
             {isMobile && (
               <div className="pb-day-pills" style={{ ['--n' as string]: Math.min(cycle.length, DAYS_PER_WEEK) }}>
@@ -655,7 +705,7 @@ export default function PlanBuilderScreen(props: PlanBuilderScreenProps) {
                     onClick={() => props.onCurrentDay(c.slot)}
                   >
                     <span>{c.slot + 1}</span>
-                    <span className={`pb-day-dot${week.days[c.slot]?.videoIds.length ? ' has' : ''}`} />
+                    <span className={`pb-day-dot${week.days[c.slot] && dayIsFilled(week.days[c.slot]) ? ' has' : ''}`} />
                   </button>
                 ))}
               </div>
@@ -720,5 +770,155 @@ export default function PlanBuilderScreen(props: PlanBuilderScreenProps) {
       {(toast || props.status) && <div className="pb-toast">{toast || props.status}</div>}
     </div>,
     document.body
+  );
+}
+
+/** Whole minutes from 1 to 600 typed in the box, or nothing. */
+const parseMinutes = (raw: string): number | undefined => {
+  const n = Math.round(Number(raw));
+  return raw.trim() && Number.isFinite(n) && n >= 1 ? Math.min(n, 600) : undefined;
+};
+
+/**
+ * A day's placeholder. While typing it's a field (with an optional length in
+ * minutes); Enter, the tick or clicking away keeps it and it turns into a row
+ * like a video's, so it's clear it took. Keeping it empty removes it; Escape
+ * backs out of the edit.
+ */
+function DayPlaceholder({ value, minutes, kind, onSave, onRemove }: {
+  value: string;
+  minutes?: number;
+  /** 'activity': a workout of its own (swimming). Absent: a placeholder for videos to come. */
+  kind?: 'activity';
+  onSave: (text: string, minutes?: number, kind?: 'activity') => void;
+  onRemove: () => void;
+}) {
+  const { t } = useTranslation();
+  const [editing, setEditing] = useState(!value.trim());
+  const [draft, setDraft] = useState(value);
+  const [draftMinutes, setDraftMinutes] = useState(minutes ? String(minutes) : '');
+  const [draftKind, setDraftKind] = useState<'activity' | undefined>(kind);
+  const isActivity = (editing ? draftKind : kind) === 'activity';
+  const KindIcon = isActivity ? Activity : StickyNote;
+
+  const commit = () => {
+    const text = draft.trim();
+    if (!text) { onRemove(); return; }
+    const mins = parseMinutes(draftMinutes);
+    onSave(text, mins, draftKind);
+    setDraft(text);
+    setDraftMinutes(mins ? String(mins) : '');
+    setEditing(false);
+  };
+  const cancel = () => {
+    if (!value.trim()) { onRemove(); return; }
+    setDraft(value);
+    setDraftMinutes(minutes ? String(minutes) : '');
+    setDraftKind(kind);
+    setEditing(false);
+  };
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') { e.preventDefault(); commit(); }
+    if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); cancel(); }
+  };
+
+  if (!editing) {
+    return (
+      <div className={`pb-item pb-item--note${isActivity ? ' is-activity' : ''}`}>
+        <button type="button" className="pb-note-body" onClick={() => setEditing(true)} title={t('plans.builder_note_edit')}>
+          <span className="pb-item-thumb pb-note-thumb"><KindIcon size={18} aria-hidden /></span>
+          <span className="pb-note-text">
+            <span className="pb-note-kicker">
+              {t(isActivity ? 'plans.builder_activity_kicker' : 'plans.builder_note_kicker')}
+              {minutes ? <> · {t('plans.builder_note_minutes', { count: minutes })}</> : null}
+            </span>
+            <span className="pb-item-title rx-clamp-2">{value}</span>
+          </span>
+        </button>
+        <button type="button" className="pb-note-edit" aria-label={t('plans.builder_note_edit')} title={t('plans.builder_note_edit')} onClick={() => setEditing(true)}>
+          <Pencil size={16} />
+        </button>
+        <button type="button" className="pb-item-remove" aria-label={t('plans.builder_note_remove')} title={t('plans.builder_note_remove')} onClick={onRemove}>
+          <X size={17} />
+        </button>
+      </div>
+    );
+  }
+
+  // Picking the kind mustn't take focus from the text, or its blur would save.
+  const kindButton = (value: 'activity' | undefined, label: string) => (
+    <button
+      type="button"
+      className={draftKind === value ? 'is-on' : ''}
+      aria-pressed={draftKind === value}
+      onMouseDown={e => e.preventDefault()}
+      onClick={() => setDraftKind(value)}
+    >
+      {label}
+    </button>
+  );
+
+  return (
+    <div
+      className="pb-daynote-edit"
+      // Moving between the text, the minutes and the kind isn't leaving: only a
+      // click outside keeps it.
+      onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) commit(); }}
+    >
+      <div className="rx-seg pb-daynote-kind" role="group" aria-label={t('plans.builder_kind_label')}>
+        {kindButton(undefined, t('plans.builder_kind_placeholder'))}
+        {kindButton('activity', t('plans.builder_kind_activity'))}
+      </div>
+      <div className="pb-daynote">
+      <KindIcon size={16} aria-hidden />
+      <input
+        type="text"
+        autoFocus
+        value={draft}
+        maxLength={200}
+        aria-label={t('plans.builder_note_label')}
+        placeholder={t(isActivity ? 'plans.builder_activity_hint' : 'plans.builder_placeholder_hint')}
+        onChange={e => setDraft(e.target.value)}
+        onKeyDown={onKeyDown}
+      />
+      <label className="pb-daynote-min" title={t('plans.builder_note_minutes_label')}>
+        <input
+          type="number"
+          inputMode="numeric"
+          min={1}
+          max={600}
+          step={1}
+          value={draftMinutes}
+          aria-label={t('plans.builder_note_minutes_label')}
+          placeholder="–"
+          onChange={e => setDraftMinutes(e.target.value.replace(/[^0-9]/g, '').slice(0, 3))}
+          onKeyDown={onKeyDown}
+        />
+        <span>{t('plans.builder_note_min')}</span>
+      </label>
+      <button
+        type="button"
+        className="pb-daynote-save"
+        aria-label={t('plans.builder_note_save')}
+        title={t('plans.builder_note_save')}
+        disabled={!draft.trim()}
+        // Keep the field focused so its blur doesn't save first and swallow the click.
+        onMouseDown={e => e.preventDefault()}
+        onClick={commit}
+      >
+        <Check size={16} />
+      </button>
+      <button
+        type="button"
+        className="pb-daynote-clear"
+        aria-label={t('plans.builder_note_remove')}
+        title={t('plans.builder_note_remove')}
+        onMouseDown={e => e.preventDefault()}
+        onClick={onRemove}
+      >
+        <X size={15} />
+      </button>
+      </div>
+    </div>
   );
 }

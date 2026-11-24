@@ -84,6 +84,11 @@
 .md-field.is-ok { border-color: var(--t-success-border); }
 .md-field input { flex: 1; min-width: 0; border: none; outline: none; background: transparent; color: var(--t-ink); font: inherit; font-size: 15px; }
 .md-field input::placeholder { color: var(--t-ink-faint); }
+/* A short number box: minutes, with the unit after it. */
+.md-field--minutes { width: 160px; }
+.md-field--minutes span { color: var(--t-ink-muted); font-size: 14px; font-weight: 600; }
+.md-field--minutes input { -moz-appearance: textfield; }
+.md-field--minutes input::-webkit-outer-spin-button, .md-field--minutes input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 .md-field .is-ok-icon { color: var(--t-success); }
 
 /* Chips (selectable): the tag category's tint until picked, then its solid ink with a check. */
@@ -97,6 +102,21 @@
 .md-chip--body.is-on { background: var(--t-tag-body-ink); color: #FFFFFF; }
 
 .md-group { display: flex; flex-direction: column; gap: 10px; }
+.md-subgroup { display: flex; flex-direction: column; gap: 8px; }
+.md-subgroup + .md-subgroup { margin-top: 6px; }
+.md-sublabel { font-size: 12px; font-weight: 600; color: var(--t-ink-muted); }
+/* "+ Add your own": quiet until used, so it doesn't compete with real tags. */
+.md-chip--add { background: transparent; color: var(--t-ink-muted); border: 1.5px dashed var(--t-border); }
+.md-chip--add.is-on { background: var(--t-accent); color: #FFFFFF; border-color: var(--t-accent); }
+.md-chip--add:disabled { opacity: 0.5; cursor: default; }
+.md-chip--plus { width: 36px; padding: 0; justify-content: center; }
+/* A tag someone added carries a small × to delete it. */
+.md-chip-custom { position: relative; display: inline-flex; }
+.md-chip-delete { position: absolute; top: -6px; right: -6px; width: 20px; height: 20px; display: grid; place-items: center; padding: 0; border: 1.5px solid var(--t-border); border-radius: 50%; background: var(--t-surface); color: var(--t-ink-muted); cursor: pointer; }
+.md-chip-delete:hover { color: var(--t-danger); border-color: var(--t-danger); }
+.md-tag-add { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.md-tag-input { height: 36px; width: 170px; max-width: 60vw; padding: 0 10px; border: 1.5px solid var(--t-accent); border-radius: 9px; background: var(--t-surface); color: var(--t-ink); font: inherit; font-size: 14px; outline: none; }
+.md-tag-error { font-size: 12px; color: var(--t-danger); }
 .md-group-head { display: flex; align-items: baseline; gap: 8px; }
 .md-label { font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; }
 .md-count { font-size: 12px; font-weight: 600; color: var(--t-accent); }
@@ -145,6 +165,8 @@
 .md-seg--wide { display: flex; width: 100%; max-width: 440px; padding: 4px; border-radius: 14px; }
 .md-seg--wide button { flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; height: 40px; border-radius: 11px; font-size: 14px; }
 .md-seg--wide button svg { color: var(--t-accent); }
+.md-seg--wrap { flex-wrap: wrap; }
+.md-seg--wrap button { min-width: 0; white-space: nowrap; padding: 0 10px; }
 
 /* Small dialogs: import plan, backup */
 .md-drop { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 28px 16px; border: 1.5px dashed var(--t-border-dashed); border-radius: 18px; background: var(--t-subtle); text-align: center; cursor: pointer; }

@@ -241,3 +241,13 @@ export function matchesQuery(fields: Array<string | null | undefined>, query: st
   if (words.length === 0) return false;
   return tokens.every(token => words.some(word => wordMatchesToken(word, token)));
 }
+
+/**
+ * Whether a video suits any of the chosen levels. A video marked "all levels"
+ * suits every level, so it stays when any level is picked.
+ */
+export function matchesLevel(videoLevel: string | undefined, selected: string[]): boolean {
+  if (selected.length === 0) return true;
+  if (!videoLevel) return false;
+  return videoLevel === 'all' || selected.includes(videoLevel);
+}

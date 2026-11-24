@@ -5,10 +5,11 @@ import LibraryToolbar, { LibrarySort, LibraryView, SortPill } from '../component
 import FiltersSheet from '../components/library/FiltersSheet';
 import { FolderCard, FolderItem, FolderRow, VideoGridCard, VideoListRow } from '../components/library/LibraryCards';
 import VideoDetailsModal from '../components/VideoDetailsModal';
-import { EMPTY_LENGTH, isLengthActive, LengthRange, matchesLength, matchesTags, matchesQuery, useFilterMatchMode } from '../lib/filters';
+import { EMPTY_LENGTH, isLengthActive, LengthRange, matchesLength, matchesLevel, matchesTags, matchesQuery, useFilterMatchMode } from '../lib/filters';
 import { useLengthLabel } from '../components/library/LengthFilter';
 import { useIsMobile } from '../lib/useIsMobile';
-import { ChevronLeft, ChevronRight, Sparkles, Pencil, Trash2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Pin, Sparkles, Pencil, Trash2 } from 'lucide-react';
+import { setPinned, usePinnedFolders } from '../lib/pins';
 import '../styles/library.css';
 import { useMetaLabels } from '../lib/labels';
 import { fromAlbumRouteParam, toAlbumRouteParam, toPosixPath, isExternalVideo, isExternalAlbumKey, isFavoritesAlbumKey, playlistIdFromAlbumKey } from '../lib/paths';
@@ -45,6 +46,7 @@ export default function Album() {
   const [selectedTrainingType, setSelectedTrainingType] = useState<string[]>([]);
   const [selectedBodyParts, setSelectedBodyParts] = useState<string[]>([]);
   const [selectedIntensity, setSelectedIntensity] = useState<string[]>([]);
+  const [selectedLevel, setSelectedLevel] = useState<string[]>([]);
   const [selectedLength, setSelectedLength] = useState<LengthRange>(EMPTY_LENGTH);
   const lengthLabel = useLengthLabel();
   const navigate = useNavigate();
@@ -90,6 +92,11 @@ export default function Album() {
   // Favourites is a flat, virtual album: every starred video from anywhere in
   // the library, with no path, no subfolders and nothing to rename or delete.
   const isFavoritesAlbum = isFavoritesAlbumKey(albumKey);
+  // A whole folder can be pinned to the top of the Library (not a subfolder
+  // inside it, nor Favourites, which is always first anyway).
+  const pinnedKeys = usePinnedFolders();
+  const canPin = !!albumKey && !isFavoritesAlbum && !currentSub;
+  const isPinned = canPin && pinnedKeys.includes(albumKey);
   const isFlatAlbum = isExternalAlbum || isFavoritesAlbum;
 
   // Videos with no file on disk have an empty relative_path, which would match
@@ -125,7 +132,7 @@ export default function Album() {
       : naturalCompare(a.key, b.key));
 
   const filterCount = selectedEquipment.length + selectedTrainingType.length
-    + selectedBodyParts.length + selectedIntensity.length + (isLengthActive(selectedLength) ? 1 : 0);
+    + selectedBodyParts.length + selectedIntensity.length + selectedLevel.length + (isLengthActive(selectedLength) ? 1 : 0);
   const isFiltering = filterCount > 0 || q.trim().length > 0;
 
   /** Videos sitting directly in this folder, not in one of its subfolders. */
@@ -147,6 +154,7 @@ export default function Album() {
     if (!matchesTags(v.equipment, selectedEquipment, matchMode)) return false;
     if (!matchesTags(v.training_type, selectedTrainingType, matchMode)) return false;
     if (selectedIntensity.length > 0 && !selectedIntensity.includes(v.intensity || '')) return false;
+    if (!matchesLevel(v.level, selectedLevel)) return false;
     if (!matchesTags(v.body_parts, selectedBodyParts, matchMode)) return false;
     if (!matchesLength(v.duration_seconds, selectedLength)) return false;
     return true;
@@ -321,7 +329,7 @@ export default function Album() {
 
   const clearAll = () => {
     setSelectedEquipment([]); setSelectedTrainingType([]);
-    setSelectedBodyParts([]); setSelectedIntensity([]); setSelectedLength(EMPTY_LENGTH); setQ('');
+    setSelectedBodyParts([]); setSelectedIntensity([]); setSelectedLevel([]); setSelectedLength(EMPTY_LENGTH); setQ('');
   };
 
   /** Path shown under a video title, relative to the folder being viewed. */
@@ -378,6 +386,17 @@ export default function Album() {
           </div>
 
           <div className="lib-folder-actions">
+            {canPin && (
+              <button
+                type="button"
+                className={`lib-folder-action lib-folder-pin${isPinned ? ' is-on' : ''}`}
+                aria-pressed={isPinned}
+                onClick={() => setPinned(albumKey, !isPinned)}
+              >
+                <Pin size={14} className="lib-action-icon" />
+                <span>{t(isPinned ? 'library.pinned_to_top' : 'library.pin_to_top')}</span>
+              </button>
+            )}
             {isExternalAlbum && (
               <>
                 <button type="button" className="lib-icon-btn" title={t('library.rename_playlist')} onClick={handleRenamePlaylist}>
@@ -412,6 +431,7 @@ export default function Album() {
           ...selectedTrainingType.map(v => ({ key: `type:${v}`, label: labels.trainingType(v), category: 'type' as const, remove: () => setSelectedTrainingType(p => p.filter(x => x !== v)) })),
           ...selectedBodyParts.map(v => ({ key: `body:${v}`, label: labels.bodyPart(v), category: 'body' as const, remove: () => setSelectedBodyParts(p => p.filter(x => x !== v)) })),
           ...selectedIntensity.map(v => ({ key: `int:${v}`, label: labels.intensity(v), category: 'intensity' as const, remove: () => setSelectedIntensity(p => p.filter(x => x !== v)) })),
+          ...selectedLevel.map(v => ({ key: `lvl:${v}`, label: labels.level(v), category: 'intensity' as const, remove: () => setSelectedLevel(p => p.filter(x => x !== v)) })),
           ...(isLengthActive(selectedLength) ? [{ key: 'length', label: lengthLabel(selectedLength), category: 'length' as const, remove: () => setSelectedLength(EMPTY_LENGTH) }] : []),
         ]}
         onClearAll={clearAll}
@@ -476,6 +496,8 @@ export default function Album() {
                 { value: 'za', label: t('library.sort_za') },
                 { value: 'size', label: t('library.sort_longest') },
                 { value: 'small', label: t('library.sort_shortest') },
+                { value: 'done', label: t('library.sort_most_done') },
+                { value: 'undone', label: t('library.sort_least_done') },
                 { value: 'newest', label: t('library.sort_newest') },
                 { value: 'oldest', label: t('library.sort_oldest') },
               ]}
@@ -557,6 +579,8 @@ export default function Album() {
         onBodyParts={setSelectedBodyParts}
         intensity={selectedIntensity}
         onIntensity={setSelectedIntensity}
+        level={selectedLevel}
+        onLevel={setSelectedLevel}
         length={selectedLength}
         onLength={setSelectedLength}
         matchMode={matchMode}

@@ -93,6 +93,9 @@
   cursor: default;
 }
 .lg-day.is-active { background: var(--t-accent); color: #FFFFFF; cursor: pointer; }
+/* The day's mood, tucked in the top corner of the square. */
+.lg-day { position: relative; }
+.lg-day-mood { position: absolute; top: 5px; right: 5px; color: #FFFFFF; }
 .lg-day.is-future { background: transparent; color: var(--t-border-dashed); }
 .lg-day.is-today { outline: 2px dashed var(--t-accent); outline-offset: 1px; }
 .lg-day.is-sel { outline: 2px solid var(--t-ink); outline-offset: 1px; }
@@ -133,9 +136,20 @@
 .lg-item-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; padding-top: 2px; }
 .lg-plan { align-self: flex-start; padding: 2px 8px; border-radius: 6px; background: var(--t-plan-main); color: #FFFFFF; font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
 .lg-item-title { font-size: 15px; font-weight: 600; line-height: 1.3; text-wrap: pretty; }
+.lg-min { margin-left: 8px; font-size: 13px; font-weight: 600; color: var(--t-ink-muted); white-space: nowrap; }
+.lg-min-field { display: inline-flex; align-items: center; gap: 8px; align-self: flex-start; color: var(--t-ink-muted); font-size: 14px; font-weight: 600; }
+.lg-edit .lg-min-field input { width: 90px; -moz-appearance: textfield; }
+.lg-min-field input::-webkit-outer-spin-button, .lg-min-field input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 .lg-loop { margin-left: 6px; padding: 1px 6px; border-radius: 6px; background: var(--t-tint); font-size: 11px; font-weight: 700; vertical-align: 1px; }
 .lg-icon-quiet { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; margin-left: 4px; padding: 0; border: none; border-radius: 6px; background: none; color: var(--t-ink-faint); vertical-align: -6px; cursor: pointer; }
 .lg-icon-quiet:hover { background: var(--t-tint); color: var(--t-ink); }
+.lg-mood { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; align-self: flex-start; margin-left: 142px; padding: 4px 10px 4px 6px; border: none; border-radius: 12px; background: none; color: var(--t-ink); font: inherit; font-size: 13px; font-weight: 600; text-align: left; cursor: pointer; }
+.lg-mood-part { display: inline-flex; align-items: center; gap: 5px; }
+.lg-mood-part svg { color: var(--t-accent); }
+.lg-mood-label { color: var(--t-ink-muted); font-weight: 600; }
+.lg-mood:hover { background: var(--t-tint); color: var(--t-ink); }
+.lg-edit--mood { gap: 2px; }
+.lg-edit--mood .lg-edit-actions { margin-top: 6px; }
 .lg-note { padding: 8px 12px; border-radius: 4px 14px 14px 14px; background: var(--t-tint); font-size: 14px; line-height: 1.4; align-self: flex-start; margin-left: 142px; }
 .lg-edit { display: flex; flex-direction: column; gap: 6px; margin-left: 142px; }
 .lg-edit textarea,
@@ -219,7 +233,9 @@
   .lg-gap { padding-left: 52px; }
   .lg-thumb { width: 92px; }
   .lg-note,
+  .lg-mood,
   .lg-edit { margin-left: 106px; }
+  .lg-day-mood { top: 3px; right: 3px; }
   .lg-journal { margin-top: 28px; padding-top: 0; border-top: none; }
 }
 

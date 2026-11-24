@@ -1,6 +1,6 @@
 import { ReactNode, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Eye, Heart, HardDriveUpload, Image as ImageIcon, MoreHorizontal, Pencil, Play, Plus, Snowflake, Trash2, WifiOff } from 'lucide-react';
+import { Eye, Folder, Heart, HardDriveUpload, Image as ImageIcon, MoreHorizontal, Pencil, Play, Plus, Snowflake, Trash2, WifiOff, X } from 'lucide-react';
 import { isTv } from '../../lib/tv';
 import { CompletedBadge } from '../library/LibraryCards';
 
@@ -229,16 +229,37 @@ export function ActivePlanCard(props: ActivePlanCardProps) {
   );
 }
 
-export function EmptySlot({ slot }: { slot: 'main' | 'extra' }) {
+export function EmptySlot({ slot, onDismiss, onAdd }: { slot: 'main' | 'extra'; onDismiss?: () => void; onAdd?: () => void }) {
   const { t } = useTranslation();
   return (
-    <div className="pl-empty-slot">
+    // Clicking the empty card picks a plan for it; the × only hides the card.
+    <div
+      className={`pl-empty-slot${onAdd ? ' is-clickable' : ''}`}
+      role={onAdd ? 'button' : undefined}
+      tabIndex={onAdd ? 0 : undefined}
+      aria-label={onAdd ? t('plans.quick_title') : undefined}
+      onClick={onAdd}
+      onKeyDown={onAdd ? e => {
+        if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onAdd(); }
+      } : undefined}
+    >
+      {onDismiss && (
+        <button
+          type="button"
+          className="pl-empty-dismiss"
+          aria-label={t('plans.hide_extra_slot')}
+          title={t('plans.hide_extra_slot')}
+          onClick={e => { e.stopPropagation(); onDismiss(); }}
+        >
+          <X size={16} />
+        </button>
+      )}
       <div className="pl-empty-icon"><Plus size={22} /></div>
       <div>
         <div className="pl-empty-kind">
           {t(slot === 'extra' ? 'plans.slot_extra_caps' : 'plans.slot_main_caps')}
         </div>
-        <div className="pl-empty-note">{t('plans.slot_empty')}</div>
+        <div className="pl-empty-note">{t(onAdd ? 'plans.slot_empty_pick' : 'plans.slot_empty')}</div>
       </div>
     </div>
   );
@@ -309,5 +330,35 @@ export function PlanCard({ plan, onOpen, onStart, onEdit, onChangeCover, onBacku
         </button>
       </div>
     </div>
+  );
+}
+
+/**
+ * A plan category as a folder (the Plans page's folder view): a cover from one
+ * of its plans, its name and how many plans it holds. Cards stacked behind the
+ * cover say "more inside".
+ */
+export function PlanFolderCard({ title, count, cover, blur, favorites, onOpen }: {
+  title: string;
+  count: number;
+  cover: string | null;
+  blur: boolean;
+  favorites?: boolean;
+  onOpen: () => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <button type="button" className="pl-folder" onClick={onOpen}>
+      <span className="pl-folder-cover">
+        <span className={`pl-folder-img pl-cover${cover ? '' : ' pl-cover--empty'}`}>
+          {cover
+            ? <img src={cover} alt="" className={blur ? 'is-blurred' : undefined} loading="lazy" />
+            : <Folder size={30} className="pl-folder-icon" />}
+          {favorites && <span className="rx-heart is-on pl-folder-heart"><Heart size={15} /></span>}
+        </span>
+      </span>
+      <span className="pl-folder-name">{title}</span>
+      <span className="pl-folder-count">{t('plans.n_plans', { count })}</span>
+    </button>
   );
 }
